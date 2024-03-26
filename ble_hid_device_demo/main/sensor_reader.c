@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "soc/soc_caps.h"
@@ -32,6 +33,7 @@ static int  wait_to_confirm_input = 500;
 unsigned int feedback_time_for_press = 100;
 unsigned int feedback_time_for_input = 200;
 unsigned long _feedback_times[5];
+
 
 #define GPIO_OUTPUT_IO_0    11
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<GPIO_OUTPUT_IO_0))
@@ -82,8 +84,13 @@ gpio_set_level(GPIO_OUTPUT_IO_0, vibrate[0]);
 }
 
 
-static unsigned long _current_time = 0;
+static uint64_t _current_time = 0;
 
+int64_t gettime(){
+  struct timeval tv_now;
+  gettimeofday(&tv_now, NULL);
+  uint64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+}
 
 void processFeedback() {
   bool vibrate[5];
@@ -97,9 +104,10 @@ char decodeAndUpdate(void) {
   static char _last_char_value = 0;
   static unsigned long _accept_input_at;
 
-  
-  _current_time = _current_time + polling_period;
+  uint64_t last_time = _current_time;
 
+  _current_time = gettime();
+  
   char out = decode();
 
   if (!out) {
@@ -120,6 +128,7 @@ char decodeAndUpdate(void) {
   unsigned long feedback_until = _current_time + feedback_time_for_input;
 
   for (int i = 0; i < 5; ++i) {
+    // TODO give this feedback on actuation.
     _feedback_times[i] = feedback_until;
   }
 
