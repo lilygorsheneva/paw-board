@@ -90,12 +90,13 @@ int64_t gettime(){
   struct timeval tv_now;
   gettimeofday(&tv_now, NULL);
   uint64_t time_us = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+  return time_us;
 }
 
 void processFeedback() {
   bool vibrate[5];
   for (int i = 0; i < 5; ++i) {
-    vibrate[i] = (_feedback_times[i] >= _current_time);
+    vibrate[i] = !(_feedback_times[i] >= _current_time);
   }
   writeOutputPins(vibrate);
 }
