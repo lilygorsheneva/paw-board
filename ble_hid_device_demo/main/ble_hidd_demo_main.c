@@ -57,7 +57,7 @@ static bool send_volum_up = false;
 
 static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param);
 
-#define HIDD_DEVICE_NAME            "HID"
+#define HIDD_DEVICE_NAME            "PAWBOARD"
 static uint8_t hidd_service_uuid128[] = {
     /* LSB <--------------------------------------------------------------------------------> MSB */
     //first uuid, 16bit, [12],[13] is the value
@@ -175,25 +175,11 @@ void hid_demo_task(void *pvParameters)
         vTaskDelay(polling_period / portTICK_PERIOD_MS);
         out = pressure_sensor_read();
         if (sec_conn && out) {
-            // ESP_LOGI(HID_DEMO_TAG, "Send the volume");
-            // send_volum_up = true;
-            // //uint8_t key_vaule = {HID_KEY_A};
-            // //esp_hidd_send_keyboard_value(hid_conn_id, 0, &key_vaule, 1);
-            // esp_hidd_send_consumer_value(hid_conn_id, HID_CONSUMER_VOLUME_UP, true);
-            // vTaskDelay(3000 / portTICK_PERIOD_MS);
-            // if (send_volum_up) {
-            //     send_volum_up = false;
-            //     esp_hidd_send_consumer_value(hid_conn_id, HID_CONSUMER_VOLUME_UP, false);
-            //     esp_hidd_send_consumer_value(hid_conn_id, HID_CONSUMER_VOLUME_DOWN, true);
-            //     vTaskDelay(3000 / portTICK_PERIOD_MS);
-            //     esp_hidd_send_consumer_value(hid_conn_id, HID_CONSUMER_VOLUME_DOWN, false);
-            // }
             ESP_LOGI(HID_DEMO_TAG, "Send key");
-            key_value[0] = out - 'a' + HID_KEY_A;
+            key_value[0] = out;
             esp_hidd_send_keyboard_value(hid_conn_id, 0, key_value, 1);
             esp_hidd_send_keyboard_value(hid_conn_id, 0, NULL, 0);
         } else {
-            // stop_vibration();
         }
     }
 }

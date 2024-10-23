@@ -5,6 +5,5 @@
 
 void pressure_sensor_init(void);
 char pressure_sensor_read(void);
-void stop_vibration(void);
-static int polling_period = 500;
+static int polling_period = 50;
 #endif

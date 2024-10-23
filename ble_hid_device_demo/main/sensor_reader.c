@@ -14,6 +14,8 @@
 #include "esp_adc/adc_oneshot.h"
 #include "driver/gpio.h"
 #include "sensor_reader.h"
+#include "hid_dev.h"
+#include "driver/ledc.h"
 
 const static char *TAG = "SENSOR";
 
@@ -24,16 +26,47 @@ static int adc_raw[10];
 static int analog_values[5];
 static bool pins_pressed[5];
 static int thresholds[5];
+static int debounce[5];
 
 
 static char out = 0;
-static int debounce = 100;
-static int  wait_to_confirm_input = 500;
 
-unsigned int feedback_time_for_press = 100;
-unsigned int feedback_time_for_input = 200;
-unsigned long _feedback_times[5];
+//microseconds
+static int wait_to_confirm_input = 300* 1000;
+static int key_repeat_delay = 5000* 1000;
 
+#define LEDC_TIMER              LEDC_TIMER_0
+#define LEDC_MODE               LEDC_LOW_SPEED_MODE
+#define LEDC_OUTPUT_IO          (11) // Define the output GPIO
+#define LEDC_CHANNEL            LEDC_CHANNEL_0
+#define LEDC_DUTY_RES           LEDC_TIMER_13_BIT // Set duty resolution to 13 bits
+#define LEDC_DUTY               (4096) // Set duty to 50%. (2 ** 13) * 50% = 4096
+#define LEDC_FREQUENCY          (4000) // Frequency in Hertz. Set frequency at 4 kHz
+
+static void example_ledc_init(void)
+{
+    // Prepare and then apply the LEDC PWM timer configuration
+    ledc_timer_config_t ledc_timer = {
+        .speed_mode       = LEDC_MODE,
+        .timer_num        = LEDC_TIMER,
+        .duty_resolution  = LEDC_DUTY_RES,
+        .freq_hz          = LEDC_FREQUENCY,  // Set output frequency at 4 kHz
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
+    // Prepare and then apply the LEDC PWM channel configuration
+    ledc_channel_config_t ledc_channel = {
+        .speed_mode     = LEDC_MODE,
+        .channel        = LEDC_CHANNEL,
+        .timer_sel      = LEDC_TIMER,
+        .intr_type      = LEDC_INTR_DISABLE,
+        .gpio_num       = LEDC_OUTPUT_IO,
+        .duty           = (1 << 13) - 1, // Set duty to 0%
+        .hpoint         = 0
+    };
+    ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+}
 
 #define GPIO_OUTPUT_IO_0    11
 #define GPIO_OUTPUT_PIN_SEL  ((1ULL<<GPIO_OUTPUT_IO_0))
@@ -44,12 +77,10 @@ void processInputPin(uint8_t i) {
   if (!pins_pressed[i]) {
     if (value >= thresholds[i]) {
       pins_pressed[i] = true;
-    //   _feedback_times[i] = _current_time + feedback_time_for_press;
     }
   } else {
-    if (value < thresholds[i] - debounce) {
+    if (value < thresholds[i] - debounce[i]) {
       pins_pressed[i] = false;
-    //   _feedback_times[i] = 0;
     }
   }
 }
@@ -68,13 +99,7 @@ char decode(void) {
   if (!buf) {
     return 0;
   }
-  char out = buf - 1 + 'a';
-  if (out > 'z') {
-    // 11111 on the keys default maps to del. Setting everything past Z to a space.
-    // TODO If you ever want a more complex mapping, just write otu a whole map.
-    out = ' ';
-  }
-  return out;
+  return buf;
 }
 
 
@@ -93,17 +118,10 @@ int64_t gettime(){
   return time_us;
 }
 
-void processFeedback() {
-  bool vibrate[5];
-  for (int i = 0; i < 5; ++i) {
-    vibrate[i] = !(_feedback_times[i] >= _current_time);
-  }
-  writeOutputPins(vibrate);
-}
-
 char decodeAndUpdate(void) {
   static char _last_char_value = 0;
   static unsigned long _accept_input_at;
+  static unsigned long _repeat_delay_threshold = 0;
 
   uint64_t last_time = _current_time;
 
@@ -111,29 +129,46 @@ char decodeAndUpdate(void) {
   
   char out = decode();
 
+  // Nothing Pressed
   if (!out) {
     _last_char_value = 0;
+
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, (1 << 13) -1));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+
     return 0;
   }
 
+  // Something Pressed, but different from last input
   if (_last_char_value != out) {
     _accept_input_at = _current_time + wait_to_confirm_input;
     _last_char_value = out;
+    
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, (1 << 12)));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+
     return 0;
   }
 
+  // Pressed, but not long enough to be an input.
   if (_current_time < _accept_input_at) {
+
+
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, 0 ));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
+
+
     return 0;
   }
 
-  unsigned long feedback_until = _current_time + feedback_time_for_input;
+  // Send key.
+    _accept_input_at = _current_time + key_repeat_delay;
+  
+    ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, (1 << 12)  ));
+    ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
 
-  for (int i = 0; i < 5; ++i) {
-    // TODO give this feedback on actuation.
-    _feedback_times[i] = feedback_until;
-  }
 
-  _last_char_value = 0;  // TODO handle key repeat somehow.
+
   return out;
 }
 
@@ -159,49 +194,61 @@ void pressure_sensor_init(void)
     }
       
 
-    thresholds[0] = 400;
-    thresholds[1] = 400;
-    thresholds[2] = 400;
-    thresholds[3] = 400;
-    thresholds[4] = 400;
+    thresholds[0] = 120;
+    thresholds[1] = 120;
+    thresholds[2] = 250;
+    thresholds[3] = 80;
+    thresholds[4] = 40;
 
-    //zero-initialize the config structure.
-    gpio_config_t io_conf = {};
-    //disable interrupt
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    //set as output mode
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    //bit mask of the pins that you want to set,e.g.GPIO18/19
-    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
-    //disable pull-down mode
-    io_conf.pull_down_en = 0;
-    //disable pull-up mode
-    io_conf.pull_up_en = 0;
-    //configure GPIO with the given settings
-    gpio_config(&io_conf);
+    debounce[0] = 30;
+    debounce[1] = 30;
+    debounce[2] = 50;
+    debounce[3] = 20;
+    debounce[4] = 10;
+
+
+    // //zero-initialize the config structure.
+    // gpio_config_t io_conf = {};
+    // //disable interrupt
+    // io_conf.intr_type = GPIO_INTR_DISABLE;
+    // //set as output mode
+    // io_conf.mode = GPIO_MODE_OUTPUT;
+    // //bit mask of the pins that you want to set,e.g.GPIO18/19
+    // io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    // //disable pull-down mode
+    // io_conf.pull_down_en = 0;
+    // //disable pull-up mode
+    // io_conf.pull_up_en = 0;
+    // //configure GPIO with the given settings
+    // gpio_config(&io_conf);
+
+    example_ledc_init();
 }
 
+char convert_to_hid_code(char in){
+if (in == 31) {
+  return  HID_KEY_DELETE;
+} else if (in > 'z' - 'a' + 1) {
+  return HID_KEY_SPACEBAR;
+}
+else {
+  return in + HID_KEY_A - 1;
+}
+
+}
 
 char pressure_sensor_read(void) {
     for (int i = 0; i < 5; ++i) {
-
-    
         ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, channels[i], &adc_raw[i]));
-        ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1, channels[i], adc_raw[i]);
+        //ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1, channels[i], adc_raw[i]);
     }    
      
         processInputPins();
         char out = decodeAndUpdate();
-        processFeedback();
-        ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d | %c |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4], out);
+        ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d | %c |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4], out + 'a' - 1);
 
-        return out;
+        return convert_to_hid_code(out);
     
 }
 
-void stop_vibration(void){
-  for (int i = 0; i < 5; ++i) {
-    _feedback_times[i] = 0;
-  }
-    gpio_set_level(GPIO_OUTPUT_IO_0, 0);
-}
+
