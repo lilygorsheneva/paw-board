@@ -21,9 +21,7 @@ static int debounce[] = {10,10,10,10,10};
 static int adc_raw[10];
 static int analog_values[5];
 static bool pins_unstable[5];
-
-// EXTERN
-bool pins_pressed[5];
+static bool pins_pressed[5];
 
 
 static adc_oneshot_unit_handle_t adc1_handle;
@@ -134,7 +132,17 @@ bool all_pins_stable(void)
   return !unstable;
 }
 
-void pressure_sensor_read(void)
+char pressure_bits_to_num(void)
+{
+  char buf = 0;
+  for (int i = 0; i < 5; ++i)
+  {
+    buf = buf + (pins_pressed[i] * (1 << i));
+  }
+  return buf;
+}
+
+char pressure_sensor_read(void)
 {
   for (int i = 0; i < 5; ++i)
   {
@@ -148,5 +156,5 @@ void pressure_sensor_read(void)
     ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4]);
   }
 
-  return;
+  return pressure_bits_to_num();
 }

@@ -25,8 +25,8 @@ void hid_task(void *pvParameters)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while(1) {
         vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
-        pressure_sensor_read();
-        out = decode_and_feedback();
+        char pins = pressure_sensor_read();
+        out = decode_and_feedback(pins);
 
 
         if (sec_conn && out) {
