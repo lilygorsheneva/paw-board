@@ -9,6 +9,8 @@
 
 #include "sensors.h"
 
+#define FORCE_ANALOG_LOG false
+
 const static char *TAG = "SENSOR";
 
 static adc_channel_t channels[] = {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3, ADC_CHANNEL_4};
@@ -41,6 +43,8 @@ void pressure_sensor_init(void)
   {
     ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, channels[i], &config));
   }
+
+  ESP_LOGI(TAG, "Init adc");
 }
 
 // Naive approach to handling a read. Hardcoded threshold with
@@ -139,7 +143,7 @@ void pressure_sensor_read(void)
 
   processInputPins();
 
-  if (analog_values[0] || analog_values[1] || analog_values[2] || analog_values[3] || analog_values[4])
+  if (analog_values[0] || analog_values[1] || analog_values[2] || analog_values[3] || analog_values[4] || FORCE_ANALOG_LOG)
   {
     ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4]);
   }

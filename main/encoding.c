@@ -102,7 +102,9 @@ char decode_and_feedback(void)
   _sent = true;
   _post_send_vibrate = _current_time + SEND_FEEDBACK_TIME_MS * 1000;
   do_feedback(false, true);
-  return out;
+
+  ESP_LOGI(TAG, "| %c |", out);
+  return convert_to_hid_code(out);
 }
 
 char convert_to_hid_code(char bitstring)

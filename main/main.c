@@ -16,7 +16,7 @@
 #include "encoding.h"
 #include "constants.h"
 
-#define MAIN_TAG "MAIN"
+const static char *TAG = "MAIN";
 
 void hid_task(void *pvParameters)
 {
@@ -25,15 +25,15 @@ void hid_task(void *pvParameters)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while(1) {
         vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
+        pressure_sensor_read();
         out = decode_and_feedback();
 
 
         if (sec_conn && out) {
-            ESP_LOGI(MAIN_TAG, "Send key");
+            ESP_LOGI(TAG, "Send key");
             key_value[0] = out;
             esp_hidd_send_keyboard_value(hid_conn_id, 0, key_value, 1);
             esp_hidd_send_keyboard_value(hid_conn_id, 0, NULL, 0);
-        } else {
         }
     }
 }
@@ -44,6 +44,8 @@ void app_main(void){
 
     pressure_sensor_init();
     initialize_feedback();  
+
+    ESP_LOGI(TAG, "Start main loop");
 
     xTaskCreate(&hid_task, "hid_task", 8000, NULL, 5, NULL);
 }

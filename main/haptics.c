@@ -48,6 +48,8 @@ static void single_pwm_init(void)
       .duty = (1 << 13) - 1, // Set duty to 0%
       .hpoint = 0};
   ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+
+  ESP_LOGI(TAG, "Init single-mode feedback");
 }
 
 void scale_vibration_to_pincount(bool force_off, bool force_full)
@@ -94,6 +96,8 @@ static void multi_gpio_init(void)
   // disable pull-up mode
   io_conf.pull_up_en = 0;
   gpio_config(&io_conf);
+
+  ESP_LOGI(TAG, "Init multi-mode feedback");
 }
 
 
@@ -127,12 +131,12 @@ void multi_motor_feedback(bool force_off, bool force_full)
 
 void do_feedback(bool force_off, bool force_full)
 {
-  multi_motor_feedback(force_off, force_full);
-  // scale_vibration_to_pincount(force_off, force_full);
+  //multi_motor_feedback(force_off, force_full);
+   scale_vibration_to_pincount(force_off, force_full);
 }
 
 void initialize_feedback(void)
 {
-   multi_gpio_init();
-  // single_pwm_init();
+  // multi_gpio_init();
+  single_pwm_init();
 }
