@@ -11,11 +11,10 @@
 #include "freertos/task.h"
 #include "soc/soc_caps.h"
 #include "esp_log.h"
-#include "esp_adc/adc_oneshot.h"
-#include "driver/gpio.h"
-#include "hid_dev.h"
-#include "driver/ledc.h"
 
+
+// Key mapping
+#include "hid_dev.h"
 
 #include "haptics.h"
 #include "sensors.h"
@@ -55,8 +54,6 @@ char decode_and_feedback(void)
   // Attempting to prevent key repeat by requriing all to be unpressed.
   static bool _sent = false;
 
-  uint64_t last_time = _current_time;
-
   _current_time = gettime();
 
   char out = pressure_bits_to_num();
@@ -87,7 +84,7 @@ char decode_and_feedback(void)
   // Something Pressed, but different from last input
   if (_last_char_value != out)
   {
-    _accept_input_at = _current_time + WAIT_TO_CONFIRM_INPUT_MS;
+    _accept_input_at = _current_time + WAIT_TO_CONFIRM_INPUT_MS * 1000;
     _last_char_value = out;
     do_feedback(false, false);
     return 0;
@@ -103,7 +100,7 @@ char decode_and_feedback(void)
   // Send key.
 
   _sent = true;
-  _post_send_vibrate = _current_time + SEND_FEEDBACK_TIME_MS;
+  _post_send_vibrate = _current_time + SEND_FEEDBACK_TIME_MS * 1000;
   do_feedback(false, true);
   return out;
 }

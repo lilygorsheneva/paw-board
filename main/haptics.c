@@ -16,8 +16,6 @@
 
 const static char *TAG = "HAPTICS";
 
-static char out = 0;
-
 #define LEDC_TIMER LEDC_TIMER_0
 #define LEDC_MODE LEDC_LOW_SPEED_MODE
 #define LEDC_OUTPUT_IO (11) // Define the output GPIO
@@ -133,7 +131,7 @@ void do_feedback(bool force_off, bool force_full)
   // scale_vibration_to_pincount(force_off, force_full);
 }
 
-void initialize_feedback_module(void)
+void initialize_feedback(void)
 {
    multi_gpio_init();
   // single_pwm_init();

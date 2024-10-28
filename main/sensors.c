@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <sys/time.h>
 #include "soc/soc_caps.h"
 #include "esp_log.h"
@@ -81,7 +82,7 @@ void processInputPinStabilityMode(uint8_t i)
 
   if (!pins_pressed[i])
   {
-    if (abs((float)(value - analog_values[i]) / (float)(analog_values[i])) <= 0.1)
+    if (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) <= 0.1)
     {
       pins_pressed[i] = true;
       pins_unstable[i] = false;
@@ -89,7 +90,7 @@ void processInputPinStabilityMode(uint8_t i)
   }
   else
   {
-    if (abs((float)(value - analog_values[i]) / (float)(analog_values[i])) >= 0.1)
+    if (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) >= 0.1)
     {
       pins_unstable[i] = true;
       pins_pressed[i] = true;
@@ -140,7 +141,7 @@ void pressure_sensor_read(void)
 
   if (analog_values[0] || analog_values[1] || analog_values[2] || analog_values[3] || analog_values[4])
   {
-    ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d | %c |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4]);
+    ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4]);
   }
 
   return;
