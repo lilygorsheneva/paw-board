@@ -92,6 +92,9 @@ char decode_and_feedback(char pins)
   return convert_to_hid_code(pins, ALPHA);
 }
 
+char convert_to_hid_code_alpha(char bitstring);
+char convert_to_hid_code_numeric(char bitstring);
+
 char convert_to_hid_code(char bitstring, keyboard_mode_t mode)
 {
   switch (mode)
