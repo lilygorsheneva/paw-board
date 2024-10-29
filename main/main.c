@@ -36,10 +36,13 @@ void hid_task(void *pvParameters)
             if (out)
             {
                 bt_send(out);
-                            }
+            }
             break;
         case KEYBOARD_STATE_PASSKEY_ENTRY:
-           bt_passkey_process(pins);
+            if (out)
+            {
+                bt_passkey_process(pins);
+            }
         default:
             break;
         }
