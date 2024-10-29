@@ -3,47 +3,58 @@
 #include "freertos/event_groups.h"
 #include "esp_log.h"
 
-
 // INIT CODE
 #include "demo_main.h"
 
 // SEND FUNCTION
 #include "esp_hidd_prf_api.h"
 
-
 #include "haptics.h"
 #include "sensors.h"
 #include "encoding.h"
 #include "constants.h"
+#include "state.h"
+#include "bluetooth.h"
 
 const static char *TAG = "MAIN";
+
+keyboard_state_t device_state = KEYBOARD_STATE_UNCONNECTED;
 
 void hid_task(void *pvParameters)
 {
     char out;
-    uint8_t key_value[] = {0};
     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    while(1) {
+    while (1)
+    {
         vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
         char pins = pressure_sensor_read();
-        out = decode_and_feedback(pins);
+        out = decode_and_feedback(pins, device_state);
 
-
-        if (sec_conn && out) {
-            ESP_LOGI(TAG, "Send key");
-            key_value[0] = out;
-            esp_hidd_send_keyboard_value(hid_conn_id, 0, key_value, 1);
-            esp_hidd_send_keyboard_value(hid_conn_id, 0, NULL, 0);
+        switch (device_state)
+        {
+        case KEYBOARD_STATE_CONNECTED:
+            if (out)
+            {
+                bt_send(out);
+            }
+            break;
+        case KEYBOARD_STATE_PASSKEY_ENTRY:
+            if (out)
+            {
+                bt_passkey_process(pins);
+            }
+        default:
+            break;
         }
     }
 }
 
-
-void app_main(void){
-    demo_main();
+void app_main(void)
+{
+    bt_init();
 
     pressure_sensor_init();
-    initialize_feedback();  
+    initialize_feedback();
 
     ESP_LOGI(TAG, "Start main loop");
 

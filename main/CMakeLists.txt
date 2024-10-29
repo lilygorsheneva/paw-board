@@ -1,4 +1,4 @@
-idf_component_register(SRCS "encoding.c"
+idf_component_register(SRCS "bluetooth.c" "encoding.c"
                             "haptics.c"
                             "sensors.c"
                             "main.c"

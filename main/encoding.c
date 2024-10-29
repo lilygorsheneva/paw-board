@@ -14,6 +14,7 @@
 #include "sensors.h"
 #include "encoding.h"
 #include "constants.h"
+#include "state.h"
 
 const static char *TAG = "ENCODING";
 
@@ -27,7 +28,7 @@ int64_t gettime()
   return time_us;
 }
 
-char decode_and_feedback(char pins)
+char decode_and_feedback(char pins, keyboard_state_t mode)
 {
   static char _last_char_value = 0;
   static unsigned long _accept_input_at;
@@ -38,6 +39,8 @@ char decode_and_feedback(char pins)
 
   _current_time = gettime();
 
+  char out = convert_to_hid_code(pins, mode);
+
   // Nothing Pressed
   if (!pins)
   {
@@ -47,21 +50,23 @@ char decode_and_feedback(char pins)
     do_feedback(true, false);
     return 0;
   }
+
+  // Key repeat delay.
   if (_sent)
   {
     do_feedback(true, _post_send_vibrate > _current_time);
     return 0;
   }
 
+  // Do not send on fluctuating inputs.
   if (!all_pins_stable())
   {
     do_feedback(false, false);
     return 0;
   }
 
-  // Avoiding key repeat by requring full release.
-
-  // Something Pressed, but different from last input
+  // Stricter, timed version of the fluctuating input check.
+  // Redundant.
   if (_last_char_value != pins)
   {
     _accept_input_at = _current_time + WAIT_TO_CONFIRM_INPUT_MS * 1000;
@@ -77,8 +82,14 @@ char decode_and_feedback(char pins)
     return 0;
   }
 
-  // Send key.
+  // Pressed, but not a valid input in the given mode/layout.
+  if (!out)
+  {
+    do_feedback(false, false);
+    return 0;
+  }
 
+  // Return a value and lock repeat mode.
   _sent = true;
   _post_send_vibrate = _current_time + SEND_FEEDBACK_TIME_MS * 1000;
   do_feedback(false, true);
@@ -90,10 +101,14 @@ char decode_and_feedback(char pins)
 char convert_to_hid_code_alpha(char bitstring);
 char convert_to_hid_code_numeric(char bitstring);
 
-char convert_to_hid_code(char bitstring, keyboard_mode_t mode)
+char convert_to_hid_code(char bitstring, keyboard_state_t mode)
 {
   switch (mode)
   {
+  case KEYBOARD_STATE_CONNECTED:
+    return convert_to_hid_code_alpha(bitstring);
+  case KEYBOARD_STATE_PASSKEY_ENTRY:
+    return convert_to_hid_code_numeric(bitstring);
   default:
     return convert_to_hid_code_alpha(bitstring);
   }
@@ -123,6 +138,8 @@ char convert_to_hid_code_numeric(char bitstring)
     return HID_KEY_9;
   case 10:
     return HID_KEY_0;
+  case 31:
+    return HID_KEY_ENTER;
   default:
     return 0;
   };
