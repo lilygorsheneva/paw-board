@@ -99,9 +99,12 @@ char decode_and_feedback(char pins, keyboard_state_t mode)
   _post_send_vibrate = _current_time + SEND_FEEDBACK_TIME_MS * 1000;
   do_feedback(false, true);
 
-  ESP_LOGI(TAG, "| %c |", pins);
+  ESP_LOGI(TAG, "| %c |", pins + 'a' - 1);
   return out;
 }
+
+char convert_to_hid_code_alpha(char bitstring);
+char convert_to_hid_code_numeric(char bitstring);
 
 char convert_to_hid_code(char bitstring, keyboard_state_t mode)
 {

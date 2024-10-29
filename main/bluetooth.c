@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "esp_hidd_prf_api.h"
 #include "esp_bt_defs.h"
 #include "esp_gap_ble_api.h"
@@ -20,6 +24,7 @@
 const static char *TAG = "BT";
 
 uint16_t hid_conn_id = 0;
+esp_bd_addr_t passkey_response_addr;
 
 static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param);
 
@@ -116,27 +121,18 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
     case ESP_GAP_BLE_SEC_REQ_EVT:
         for (int i = 0; i < ESP_BD_ADDR_LEN; i++)
         {
-            ESP_LOGD(HID_DEMO_TAG, "%x:", param->ble_security.ble_req.bd_addr[i]);
+            ESP_LOGD(TAG, "%x:", param->ble_security.ble_req.bd_addr[i]);
         }
         esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
         break;
     case ESP_GAP_BLE_PASSKEY_REQ_EVT:
         device_state = KEYBOARD_STATE_PASSKEY_ENTRY;
-        passkey_response_addr = param->ble_security.ble_req.bd_addr;
+        memcpy(passkey_response_addr, param->ble_security.ble_req.bd_addr, sizeof(esp_bd_addr_t));
         break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
         device_state = KEYBOARD_STATE_CONNECTED;
         esp_bd_addr_t bd_addr;
         memcpy(bd_addr, param->ble_security.auth_cmpl.bd_addr, sizeof(esp_bd_addr_t));
-        ESP_LOGI(HID_DEMO_TAG, "remote BD_ADDR: %08x%04x",
-                 (bd_addr[0] << 24) + (bd_addr[1] << 16) + (bd_addr[2] << 8) + bd_addr[3],
-                 (bd_addr[4] << 8) + bd_addr[5]);
-        ESP_LOGI(HID_DEMO_TAG, "address type = %d", param->ble_security.auth_cmpl.addr_type);
-        ESP_LOGI(HID_DEMO_TAG, "pair status = %s", param->ble_security.auth_cmpl.success ? "success" : "fail");
-        if (!param->ble_security.auth_cmpl.success)
-        {
-            ESP_LOGE(HID_DEMO_TAG, "fail reason = 0x%x", param->ble_security.auth_cmpl.fail_reason);
-        }
         break;
     default:
         break;
@@ -211,10 +207,6 @@ void bt_init(void)
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
 }
 
-char passkey_buffer[6] = {0};
-int passkey_buffer_idx = 0;
-esp_bd_addr_t passkey_response_addr;
-
 void bt_send(char key)
 {
     ESP_LOGI(TAG, "Send key");
@@ -224,16 +216,26 @@ void bt_send(char key)
     esp_hidd_send_keyboard_value(hid_conn_id, 0, NULL, 0);
 }
 
+char passkey_buffer[6] = {0};
+int passkey_buffer_idx = 0;
+
 void bt_passkey_append(int digit)
 {
     passkey_buffer[passkey_buffer_idx] = digit;
-    passkey_buffer_idx = (passkey_buffer_idx + 1) % 6
+    passkey_buffer_idx = (passkey_buffer_idx + 1) % 6;
+    ESP_LOGI(TAG, "Appending to passkey %d", digit);
 }
 
-void bt_passkey_send(
-    uint32_t passkey;
-    for (int i = 0, i < 6; ++i){
-        out = out * 10 + passkey_buffer[(passkey_buffer_idx + i) % 6]} esp_ble_passkey_reply(0, true, passkey));
+void bt_passkey_send(void)
+{
+    uint32_t passkey = 0;
+    for (int i = 0; i < 6; ++i)
+    {
+        passkey = passkey * 10 + passkey_buffer[(passkey_buffer_idx + i) % 6];
+    }
+    ESP_LOGI(TAG, "Sending passkey %ld", passkey);
+    esp_ble_passkey_reply(passkey_response_addr, true, passkey);
+}
 
 void bt_passkey_process(char pins)
 {

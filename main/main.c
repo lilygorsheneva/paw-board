@@ -28,7 +28,7 @@ void hid_task(void *pvParameters)
     {
         vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
         char pins = pressure_sensor_read();
-        out = decode_and_feedback(pins, KEYBOARD_MODE_ALPHA);
+        out = decode_and_feedback(pins, device_state);
 
         switch (device_state)
         {

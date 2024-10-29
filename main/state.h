@@ -1,12 +1,6 @@
 #ifndef STATE_H__
 #define STATE_H__
 
-typedef enum
-{
-  KEYBOARD_MODE_ALPHA,
-  KEYBOARD_MODE_NUMERIC,
-} keyboard_mode_t;
-
 typedef enum 
 {
     KEYBOARD_STATE_UNCONNECTED,
