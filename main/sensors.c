@@ -21,7 +21,7 @@ static int debounce[] = {10,10,10,10,10};
 static int adc_raw[10];
 static int analog_values[5];
 static bool pins_unstable[5];
-static bool pins_pressed[5];
+bool pins_pressed[5];
 
 
 static adc_oneshot_unit_handle_t adc1_handle;
