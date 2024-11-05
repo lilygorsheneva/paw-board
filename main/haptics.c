@@ -9,10 +9,8 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
-
 #include "haptics.h"
 #include "sensors.h"
-
 
 const static char *TAG = "HAPTICS";
 
@@ -23,7 +21,6 @@ const static char *TAG = "HAPTICS";
 #define LEDC_DUTY_RES LEDC_TIMER_13_BIT // Set duty resolution to 13 bits
 #define LEDC_DUTY (4096)                // Set duty to 50%. (2 ** 13) * 50% = 4096
 #define LEDC_FREQUENCY (4000)           // Frequency in Hertz. Set frequency at 4 kHz
-
 
 //  Single-motor pwm
 
@@ -100,8 +97,6 @@ static void multi_gpio_init(void)
   ESP_LOGI(TAG, "Init multi-mode feedback");
 }
 
-
-
 void multi_motor_feedback(bool force_off, bool force_full)
 {
   // IMPORTANT: Swap to common ground instead of common positive for this to be sane.
@@ -128,15 +123,34 @@ void multi_motor_feedback(bool force_off, bool force_full)
   }
 }
 
-
 void do_feedback(bool force_off, bool force_full)
 {
-  //multi_motor_feedback(force_off, force_full);
-   scale_vibration_to_pincount(force_off, force_full);
+  switch (HAPTICS_MODE)
+  {
+  case HAPTICS_MODE_FIVE:
+    multi_motor_feedback(force_off, force_full);
+    break;
+  case HAPTICS_MODE_SINGLE:
+    scale_vibration_to_pincount(force_off, force_full);
+    break;
+  default:
+    scale_vibration_to_pincount(force_off, force_full);
+    break;
+  }
 }
 
 void initialize_feedback(void)
 {
-  // multi_gpio_init();
-  single_pwm_init();
+  switch (HAPTICS_MODE)
+  {
+  case HAPTICS_MODE_FIVE:
+    multi_gpio_init();
+    break;
+  case HAPTICS_MODE_SINGLE:
+    single_pwm_init();
+    break;
+  default:
+    single_pwm_init();
+    break;
+  }
 }
