@@ -82,16 +82,13 @@ void processInputPinStabilityMode(uint8_t i)
     return;
   }
 
-  if (!pins_pressed[i])
+  if (value >= thresholds[i])
   {
     if (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) <= 0.1)
     {
       pins_pressed[i] = true;
       pins_unstable[i] = false;
     }
-  }
-  else
-  {
     if (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) >= 0.1)
     {
       pins_unstable[i] = true;
@@ -151,10 +148,12 @@ char pressure_sensor_read(void)
 
   processInputPins();
 
+  char out = pressure_bits_to_num();
+
   if (analog_values[0] || analog_values[1] || analog_values[2] || analog_values[3] || analog_values[4] || FORCE_ANALOG_LOG)
   {
-    ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4]);
+    ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d | %c |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4], out + 'a' - 1);
   }
 
-  return pressure_bits_to_num();
+  return out;
 }

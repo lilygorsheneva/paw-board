@@ -5,6 +5,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "soc/soc_caps.h"
+
 #include "esp_log.h"
 
 // Key mapping
@@ -70,7 +71,7 @@ char decode_and_feedback_stability(char pins, keyboard_state_t mode)
   // Key repeat delay.
   if (_sent)
   {
-    do_feedback(true, _post_send_vibrate > _current_time);
+    do_feedback(false, _post_send_vibrate > _current_time);
     return 0;
   }
 
@@ -114,9 +115,81 @@ char decode_and_feedback_stability(char pins, keyboard_state_t mode)
   return out;
 }
 
-// NOT YET IMPLEMENTED
-char decode_and_feedback_envelope(char pins, keyboard_state_t mode){return 0;}
+char decode_and_feedback_envelope(char pins, keyboard_state_t mode)
+{
+  static bool _in_envelope = false;
+  static char _accumulated = 0;
+  static bool _rejected = false;
 
+  static unsigned long _accept_input_at;
+  static unsigned long _reject_envelope_at;
+  static unsigned long _post_send_vibrate;
+
+  const unsigned long MAX_ENVELOPE_LENGTH_USEC = 2000000;
+  const unsigned long ENVELOPE_GRACE_PERIOD_USEC = 100000;
+
+  _current_time = gettime();
+
+  char out;
+
+  if (!pins && !_in_envelope)
+  {
+    ESP_LOGV(TAG, "No envelope | %c |", pins  + 'a' - 1 );
+    out = 0;
+  }
+  if (pins && !_in_envelope)
+  {
+    _in_envelope = true;
+    _reject_envelope_at = _current_time + MAX_ENVELOPE_LENGTH_USEC;
+    _accept_input_at = _current_time + WAIT_TO_CONFIRM_INPUT_MS * 1000;
+    _accumulated = pins;
+    
+    ESP_LOGV(TAG, "Enter envelope %c ",  pins + 'a' - 1 );
+    
+    out = 0;
+  }
+  if (pins && _in_envelope)
+  {
+    _accept_input_at = _current_time + WAIT_TO_CONFIRM_INPUT_MS * 1000;
+    ESP_LOGV(TAG, "| %c + %c = %c|", _accumulated + 'a' - 1, pins + 'a' - 1, (_accumulated | pins) + 'a' - 1 );
+    _accumulated = _accumulated | pins;
+
+    if (_current_time >= _reject_envelope_at) {
+     ESP_LOGI(TAG, "Envelope over time, rejecting.");
+      _rejected = true;
+    }
+    out = 0;
+  }
+  if (!pins && _in_envelope)
+  {
+    if (_current_time >= _reject_envelope_at) {
+      _accumulated = 0;
+      _in_envelope = false;
+      _rejected = true;
+      out = 0;
+    }
+
+    if (_current_time >= _accept_input_at)
+    {
+      ESP_LOGI(TAG, "| %c |", _accumulated + 'a' - 1);
+      out = convert_to_hid_code(_accumulated, keyboard_mode_to_layout(mode));
+      _accumulated = 0;
+      _in_envelope = false;
+      _rejected = false;
+      if (out) {
+        // No feedback on invalid code. Maybe extend grace period.
+        _post_send_vibrate = _current_time + SEND_FEEDBACK_TIME_MS * 1000;
+      }
+      
+    }
+  }
+
+  bool post_send = _post_send_vibrate > _current_time;
+  bool disable_feedback =  (!pins || _rejected) && !post_send;
+  do_feedback(disable_feedback, post_send);
+
+  return out;
+}
 
 char convert_to_hid_code_alpha(char bitstring);
 char convert_to_hid_code_numeric(char bitstring);
