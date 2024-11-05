@@ -28,7 +28,23 @@ int64_t gettime()
   return time_us;
 }
 
+char decode_and_feedback_stability(char pins, keyboard_state_t mode);
+char decode_and_feedback_envelope(char pins, keyboard_state_t mode);
+
 char decode_and_feedback(char pins, keyboard_state_t mode)
+{
+  switch (INPUT_HANDLER_MODE)
+  {
+  case INPUT_HANDLER_ENVELOPE:
+    return decode_and_feedback_envelope(pins, mode);
+  case INPUT_HANDLER_STABILITY:
+    return decode_and_feedback_stability(pins, mode);
+  default:
+    return decode_and_feedback_stability(pins, mode);
+  }
+}
+
+char decode_and_feedback_stability(char pins, keyboard_state_t mode)
 {
   static char _last_char_value = 0;
   static unsigned long _accept_input_at;
@@ -39,7 +55,7 @@ char decode_and_feedback(char pins, keyboard_state_t mode)
 
   _current_time = gettime();
 
-  char out = convert_to_hid_code(pins, mode);
+  char out = convert_to_hid_code(pins, keyboard_mode_to_layout(mode));
 
   // Nothing Pressed
   if (!pins)
@@ -95,21 +111,42 @@ char decode_and_feedback(char pins, keyboard_state_t mode)
   do_feedback(false, true);
 
   ESP_LOGI(TAG, "| %c |", pins + 'a' - 1);
-  return convert_to_hid_code(pins, ALPHA);
+  return out;
 }
+
+// NOT YET IMPLEMENTED
+char decode_and_feedback_envelope(char pins, keyboard_state_t mode){return 0;}
+
 
 char convert_to_hid_code_alpha(char bitstring);
 char convert_to_hid_code_numeric(char bitstring);
 
-char convert_to_hid_code(char bitstring, keyboard_state_t mode)
+keyboard_layout_t keyboard_mode_to_layout(keyboard_state_t mode)
 {
   switch (mode)
   {
   case KEYBOARD_STATE_CONNECTED:
-    return convert_to_hid_code_alpha(bitstring);
+    return KEYBOARD_LAYOUT_ALPHA;
+  case KEYBOARD_STATE_UNCONNECTED:
+    return KEYBOARD_LAYOUT_ALPHA;
   case KEYBOARD_STATE_PASSKEY_ENTRY:
+    return KEYBOARD_LAYOUT_NUMERIC;
+  default:
+    ESP_LOGE(TAG, "UNKNOWN STATE %d, defaulting to alpha.", mode);
+    return KEYBOARD_LAYOUT_ALPHA;
+  }
+}
+
+char convert_to_hid_code(char bitstring, keyboard_layout_t mode)
+{
+  switch (mode)
+  {
+  case KEYBOARD_LAYOUT_ALPHA:
+    return convert_to_hid_code_alpha(bitstring);
+  case KEYBOARD_LAYOUT_NUMERIC:
     return convert_to_hid_code_numeric(bitstring);
   default:
+    ESP_LOGE(TAG, "UNKNOWN MODE %d, defaulting to alpha.", mode);
     return convert_to_hid_code_alpha(bitstring);
   }
 }
