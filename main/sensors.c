@@ -162,8 +162,11 @@ inline bool read_calibration_button(void)
 void calibration_start(void)
 {
   in_calibration = true;
+  ESP_LOGI(TAG, "Enter calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
+
   for (int i = 0; i < SENSOR_COUNT; ++i)
   {
+    
     pins_pressed[i] = false;
     calibration_low[i] = adc_raw[i];
   }
@@ -172,6 +175,8 @@ void calibration_start(void)
 void calibration_end(void)
 {
   in_calibration = false;
+  ESP_LOGI(TAG, "Exit calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
+
   for (int i = 0; i < SENSOR_COUNT; ++i)
   {
     calibration_high[i] = adc_raw[i];
@@ -179,6 +184,8 @@ void calibration_end(void)
     thresholds[i] = (calibration_high[i] + calibration_low[i])/2;
     debounce[i] = abs(calibration_high[i] - calibration_low[i])/8;
   }
+  ESP_LOGI(TAG, "Thresholds | %4d | %4d | %4d | %4d | %4d |", thresholds[0], thresholds[1], thresholds[2], thresholds[3], thresholds[4]);
+  ESP_LOGI(TAG, "Debounce | %4d | %4d | %4d | %4d | %4d |", debounce[0], debounce[1], debounce[2], debounce[3], debounce[4]);
 };
 
 char pressure_sensor_read(void)
