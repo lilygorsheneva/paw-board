@@ -14,15 +14,13 @@
 const static char *TAG = "SENSOR";
 
 static adc_channel_t channels[] = {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3, ADC_CHANNEL_4};
-static int thresholds[] = {20, 20, 20, 20, 20}; 
-static int debounce[] = {10,10,10,10,10};
-
+static int thresholds[] = {900, 2000, 2300, 1800, 1000};
+static int debounce[] = {100, 100, 100, 100, 100};
 
 static int adc_raw[10];
 static int analog_values[5];
 static bool pins_unstable[5];
 bool pins_pressed[5];
-
 
 static adc_oneshot_unit_handle_t adc1_handle;
 void pressure_sensor_init(void)
@@ -82,18 +80,15 @@ void processInputPinStabilityMode(uint8_t i)
     return;
   }
 
+  pins_unstable[i] = (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) > 0.1);
+
   if (value >= thresholds[i])
   {
-    if (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) <= 0.1)
-    {
-      pins_pressed[i] = true;
-      pins_unstable[i] = false;
-    }
-    if (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) >= 0.1)
-    {
-      pins_unstable[i] = true;
-      pins_pressed[i] = true;
-    }
+    pins_pressed[i] = true;
+  }
+  else if (value < thresholds[i] - debounce[i])
+  {
+    pins_pressed[i] = false;
   }
 
   analog_values[i] = value;
@@ -117,7 +112,6 @@ int pins_pressed_count(void)
   }
   return buf;
 }
-
 
 bool all_pins_stable(void)
 {
@@ -150,7 +144,8 @@ char pressure_sensor_read(void)
 
   char out = pressure_bits_to_num();
 
-  if (analog_values[0] || analog_values[1] || analog_values[2] || analog_values[3] || analog_values[4] || FORCE_ANALOG_LOG)
+  // if (analog_values[0] || analog_values[1] || analog_values[2] || analog_values[3] || analog_values[4] || FORCE_ANALOG_LOG)
+  if (out || FORCE_ANALOG_LOG)
   {
     ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d | %c |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4], out + 'a' - 1);
   }

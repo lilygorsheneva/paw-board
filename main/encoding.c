@@ -141,21 +141,22 @@ char decode_and_feedback_envelope(char pins, keyboard_state_t mode)
   {
     _in_envelope = true;
     _reject_envelope_at = _current_time + MAX_ENVELOPE_LENGTH_USEC;
-    _accept_input_at = _current_time + WAIT_TO_CONFIRM_INPUT_MS * 1000;
+    _rejected = false;
+    _accept_input_at = _current_time + ENVELOPE_GRACE_PERIOD_USEC;
     _accumulated = pins;
     
-    ESP_LOGV(TAG, "Enter envelope %c ",  pins + 'a' - 1 );
+    ESP_LOGI(TAG, "Enter envelope %c ",  _accumulated + 'a' - 1 );
     
     out = 0;
   }
   if (pins && _in_envelope)
   {
-    _accept_input_at = _current_time + WAIT_TO_CONFIRM_INPUT_MS * 1000;
+    _accept_input_at = _current_time + ENVELOPE_GRACE_PERIOD_USEC;
     ESP_LOGV(TAG, "| %c + %c = %c|", _accumulated + 'a' - 1, pins + 'a' - 1, (_accumulated | pins) + 'a' - 1 );
     _accumulated = _accumulated | pins;
 
-    if (_current_time >= _reject_envelope_at) {
-     ESP_LOGI(TAG, "Envelope over time, rejecting.");
+    if (_current_time >= _reject_envelope_at && !_rejected) {
+      ESP_LOGI(TAG, "Envelope over time, rejecting.");
       _rejected = true;
     }
     out = 0;
@@ -163,16 +164,17 @@ char decode_and_feedback_envelope(char pins, keyboard_state_t mode)
   if (!pins && _in_envelope)
   {
     if (_current_time >= _reject_envelope_at) {
+      ESP_LOGI(TAG, "Exit envelope %c (rejected)",  _accumulated + 'a' - 1 );
       _accumulated = 0;
       _in_envelope = false;
       _rejected = true;
       out = 0;
-    }
-
-    if (_current_time >= _accept_input_at)
+    } 
+    if (_current_time >= _accept_input_at && !_rejected)
     {
       ESP_LOGI(TAG, "| %c |", _accumulated + 'a' - 1);
       out = convert_to_hid_code(_accumulated, keyboard_mode_to_layout(mode));
+      ESP_LOGI(TAG, "Exit envelope %c (accepted)",  _accumulated + 'a' - 1 );
       _accumulated = 0;
       _in_envelope = false;
       _rejected = false;
