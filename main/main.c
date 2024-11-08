@@ -41,8 +41,7 @@ void hid_task(void *pvParameters)
         case KEYBOARD_STATE_PASSKEY_ENTRY:
             if (out)
             {
-                // This should really be using out instead of pins for consistency. However, that would require mapping HID codes back to numbers.
-                bt_passkey_process(pins);
+                bt_passkey_process(out);
             }
         default:
             break;

@@ -127,6 +127,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         break;
     case ESP_GAP_BLE_PASSKEY_REQ_EVT:
         device_state = KEYBOARD_STATE_PASSKEY_ENTRY;
+        ESP_LOGI(TAG, "ESP_GAP_BLE_PASSKEY_REQ_EVT");
         memcpy(passkey_response_addr, param->ble_security.ble_req.bd_addr, sizeof(esp_bd_addr_t));
         break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
@@ -221,6 +222,7 @@ int passkey_buffer_idx = 0;
 
 void bt_passkey_append(int digit)
 {
+    if (digit < 0 || digit > 9) {return;}
     passkey_buffer[passkey_buffer_idx] = digit;
     passkey_buffer_idx = (passkey_buffer_idx + 1) % 6;
     ESP_LOGI(TAG, "Appending to passkey %d", digit);
@@ -237,45 +239,48 @@ void bt_passkey_send(void)
     esp_ble_passkey_reply(passkey_response_addr, true, passkey);
 }
 
-void bt_passkey_process(char pins)
+char convert_hid_code_to_num(char code)
 {
-    switch (pins)
+  switch (code)
+  {
+  case HID_KEY_1:
+    return 1;
+  case HID_KEY_2:
+    return 2;
+  case HID_KEY_3:
+    return 3;
+  case HID_KEY_4:
+    return 4;
+  case HID_KEY_5:
+    return 5;
+  case HID_KEY_6:
+    return 6;
+  case HID_KEY_7:
+    return 7;
+  case HID_KEY_8:
+    return 8;
+  case HID_KEY_9:
+    return 9;
+  case HID_KEY_0:
+    return 0;
+  default:
+    return -1;
+  };
+}
+
+
+
+void bt_passkey_process(char hid_code)
+{
+    switch (hid_code)
     {
-    case 31:
+    case HID_KEY_ENTER:
         bt_passkey_send();
         break;
-    case 10:
-        bt_passkey_append(0);
+    case 0:
         break;
-    case 1:
-        bt_passkey_append(1);
-        break;
-    case 2:
-        bt_passkey_append(2);
-        break;
-    case 3:
-        bt_passkey_append(3);
-        break;
-    case 4:
-        bt_passkey_append(4);
-        break;
-    case 5:
-        bt_passkey_append(5);
-        break;
-    case 6:
-        bt_passkey_append(6);
-        break;
-    case 7:
-        bt_passkey_append(7);
-        break;
-    case 8:
-        bt_passkey_append(8);
-        break;
-    case 9:
-        bt_passkey_append(9);
-        break;
-
     default:
+        bt_passkey_append(convert_hid_code_to_num(hid_code));
         break;
     }
 }

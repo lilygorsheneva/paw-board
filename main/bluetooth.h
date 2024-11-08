@@ -4,7 +4,7 @@
 //void bt_initialize(void);
 void bt_send(char key);
 
-void bt_passkey_process(char pins);
+void bt_passkey_process(char number);
 
 void bt_init(void);
 
