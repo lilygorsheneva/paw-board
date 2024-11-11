@@ -315,7 +315,7 @@ char convert_to_hid_code_alpha(char bitstring)
     return HID_KEY_Z;
 
   case 27:
-    return HID_KEY_SPACEBAR;
+    return HID_KEY_CAPS_LOCK;
   case 28:
     return HID_KEY_SPACEBAR;
   case 29:
