@@ -198,13 +198,13 @@ char convert_to_hid_code_numeric(char bitstring);
 
 keyboard_layout_t keyboard_mode_to_layout(keyboard_state_t mode)
 {
-  switch (mode)
+  switch (mode & MASK_KEYBOARD_STATE_BT)
   {
-  case KEYBOARD_STATE_CONNECTED:
+  case KEYBOARD_STATE_BT_CONNECTED:
     return KEYBOARD_LAYOUT_ALPHA;
-  case KEYBOARD_STATE_UNCONNECTED:
+  case KEYBOARD_STATE_BT_UNCONNECTED:
     return KEYBOARD_LAYOUT_ALPHA;
-  case KEYBOARD_STATE_PASSKEY_ENTRY:
+  case KEYBOARD_STATE_BT_PASSKEY_ENTRY:
     return KEYBOARD_LAYOUT_NUMERIC;
   default:
     ESP_LOGE(TAG, "UNKNOWN STATE %d, defaulting to alpha.", mode);

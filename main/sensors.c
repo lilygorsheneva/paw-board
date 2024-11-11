@@ -9,11 +9,14 @@
 #include "driver/gpio.h"
 
 #include "sensors.h"
+#include "state.h"
 
 #define FORCE_ANALOG_LOG false
 
 // 17 chosen to not conflict with multi-motor feedback. In the future, this may be better as an rtc gpio
 #define GPIO_CALIBRATION_PIN 17
+
+#define GPIO_LOGGING_PIN 18
 
 const static char *TAG = "SENSOR";
 
@@ -29,13 +32,13 @@ static int analog_values[SENSOR_COUNT];
 static bool pins_unstable[SENSOR_COUNT];
 bool pins_pressed[SENSOR_COUNT];
 
-bool in_calibration;
 static int calibration_low[SENSOR_COUNT] = {0};
 static int calibration_high[SENSOR_COUNT] = {0};
 
 static adc_oneshot_unit_handle_t adc1_handle;
 void pressure_sensor_init(void)
 {
+  enter_state(KEYBOARD_STATE_SENSOR_NORMAL);
   adc_oneshot_unit_init_cfg_t init_config1 = {
       .unit_id = ADC_UNIT_1,
   };
@@ -54,12 +57,10 @@ void pressure_sensor_init(void)
   gpio_config_t io_conf = {};
   io_conf.intr_type = GPIO_INTR_DISABLE;
   io_conf.mode = GPIO_MODE_INPUT;
-  io_conf.pin_bit_mask = 1ULL << GPIO_CALIBRATION_PIN;
+  io_conf.pin_bit_mask = (1ULL << GPIO_CALIBRATION_PIN) | (1ULL << GPIO_LOGGING_PIN);
   io_conf.pull_down_en = 1;
   io_conf.pull_up_en = 0;
   gpio_config(&io_conf);
-
-  in_calibration = false;
 
   ESP_LOGI(TAG, "Init adc");
 }
@@ -159,14 +160,30 @@ inline bool read_calibration_button(void)
   return gpio_get_level(GPIO_CALIBRATION_PIN);
 }
 
+inline bool read_logging_jumper(void)
+{
+  return gpio_get_level(GPIO_LOGGING_PIN);
+}
+
+void pressure_sensor_read_raw(void)
+{
+  for (int i = 0; i < SENSOR_COUNT; ++i)
+  {
+    ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, channels[i], &adc_raw[i]));
+  }
+}
+
 void calibration_start(void)
 {
-  in_calibration = true;
+  enter_state(KEYBOARD_STATE_SENSOR_CALIBRATION);
+
+  pressure_sensor_read_raw();
+
   ESP_LOGI(TAG, "Enter calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
 
   for (int i = 0; i < SENSOR_COUNT; ++i)
   {
-    
+
     pins_pressed[i] = false;
     calibration_low[i] = adc_raw[i];
   }
@@ -174,55 +191,76 @@ void calibration_start(void)
 
 void calibration_end(void)
 {
-  in_calibration = false;
+  enter_state(KEYBOARD_STATE_SENSOR_NORMAL);
+
+  pressure_sensor_read_raw();
+
   ESP_LOGI(TAG, "Exit calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
 
   for (int i = 0; i < SENSOR_COUNT; ++i)
   {
     calibration_high[i] = adc_raw[i];
 
-    thresholds[i] = (calibration_high[i] + calibration_low[i])/2;
-    debounce[i] = abs(calibration_high[i] - calibration_low[i])/8;
+    thresholds[i] = (calibration_high[i] + calibration_low[i]) / 2;
+    debounce[i] = abs(calibration_high[i] - calibration_low[i]) / 8;
   }
   ESP_LOGI(TAG, "Thresholds | %4d | %4d | %4d | %4d | %4d |", thresholds[0], thresholds[1], thresholds[2], thresholds[3], thresholds[4]);
   ESP_LOGI(TAG, "Debounce | %4d | %4d | %4d | %4d | %4d |", debounce[0], debounce[1], debounce[2], debounce[3], debounce[4]);
 };
 
-char pressure_sensor_read(void)
+void pressure_sensor_state_manage()
 {
-  for (int i = 0; i < SENSOR_COUNT; ++i)
-  {
-    ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, channels[i], &adc_raw[i]));
-  }
-
   bool calibration_button = read_calibration_button();
+  bool logging_jumper = read_logging_jumper();
 
-  if (in_calibration)
+  switch (device_state & MASK_KEYBOARD_STATE_SENSOR)
   {
-    if (!calibration_button)
+  case KEYBOARD_STATE_SENSOR_NORMAL:
+    if (logging_jumper)
     {
-      calibration_end();
+      enter_state(KEYBOARD_STATE_SENSOR_LOGGING);
     }
-    return 0;
-  }
-  else
-  {
     if (calibration_button)
     {
       calibration_start();
-      return 0;
     }
+    break;
+  case KEYBOARD_STATE_SENSOR_CALIBRATION:
+    if (!calibration_button)
+      calibration_end();
+    break;
+  case KEYBOARD_STATE_SENSOR_LOGGING:
+    if (!logging_jumper)
+    {
+      enter_state(KEYBOARD_STATE_SENSOR_NORMAL);
+    }
+    break;
+  default:
+    break;
   }
+}
 
-  processInputPins();
-
-  char out = pressure_bits_to_num();
-
-  // if (analog_values[0] || analog_values[1] || analog_values[2] || analog_values[3] || analog_values[4] || FORCE_ANALOG_LOG)
-  if (out || FORCE_ANALOG_LOG)
+char pressure_sensor_read(void)
+{
+  pressure_sensor_state_manage();
+  switch (device_state & MASK_KEYBOARD_STATE_SENSOR)
   {
-    ESP_LOGI(TAG, "| %4d | %4d | %4d | %4d | %4d | %c |", analog_values[0], analog_values[1], analog_values[2], analog_values[3], analog_values[4], out + 'a' - 1);
+  case KEYBOARD_STATE_SENSOR_NORMAL:
+    pressure_sensor_read_raw();
+    processInputPins();
+    return pressure_bits_to_num();
+    break;
+  case KEYBOARD_STATE_SENSOR_CALIBRATION:
+    return 0;
+    break;
+  case KEYBOARD_STATE_SENSOR_LOGGING:
+    pressure_sensor_read_raw();
+    ESP_LOGI(TAG, "SENSORLOG | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
+    return 0;
+    break;
+  default:
+    return 0;
+    break;
   }
-
-  return out;
+  return 0;
 }

@@ -18,7 +18,6 @@
 
 const static char *TAG = "MAIN";
 
-keyboard_state_t device_state = KEYBOARD_STATE_UNCONNECTED;
 
 void hid_task(void *pvParameters)
 {
@@ -26,19 +25,23 @@ void hid_task(void *pvParameters)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while (1)
     {
-        vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
+        if (test_state(KEYBOARD_STATE_SENSOR_LOGGING)) {
+            vTaskDelay(1);
+        } else {
+            vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
+        }
         char pins = pressure_sensor_read();
         out = decode_and_feedback(pins, device_state);
 
         switch (device_state)
         {
-        case KEYBOARD_STATE_CONNECTED:
+        case KEYBOARD_STATE_BT_CONNECTED | KEYBOARD_STATE_SENSOR_NORMAL:
             if (out)
             {
                 bt_send(out);
             }
             break;
-        case KEYBOARD_STATE_PASSKEY_ENTRY:
+        case KEYBOARD_STATE_BT_PASSKEY_ENTRY | KEYBOARD_STATE_SENSOR_NORMAL:
             if (out)
             {
                 bt_passkey_process(out);
