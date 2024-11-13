@@ -1,10 +1,14 @@
 import argparse
+import copy
 import fileinput
 import re
 from typing import List
 
 from dataclasses import dataclass, field
 from matplotlib import pyplot as plt
+
+
+filters = {}
 
 sensor_data_pattern = re.compile(r'.*\((\d+)\) SENSOR: SENSORLOG \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|.*')
 input_accept_pattern = re.compile(r'.*\((\d+)\) ENCODING: \| (.) \|.*')
@@ -70,10 +74,39 @@ def show(data):
     showtxevents(data)
     plt.show()
 
+def movingwindowfilter(input: List):
+    size = 5
+    output = []
+
+    winidx = 0
+    window = [0] * size
+    acc = 0
+    for i in input:
+        acc -= window[winidx]
+        acc += i
+        window[winidx] = i
+        winidx = (winidx+1) % size
+        output.append(acc/size)
+    return output
+
+filters['movingwindow'] = movingwindowfilter
+filters['movingwindow2pass'] = lambda data: movingwindowfilter(movingwindowfilter(data))
+
+
+def dofilter(data, filter_fn):
+    newdata = copy.deepcopy(data)
+    newdata.analog_readings = [filter_fn(channel) for channel in data.analog_readings]
+    return newdata
+
+
 parser = argparse.ArgumentParser()
-parser.add_argument('filepath')
+parser.add_argument('filepath',)
 parser.add_argument('--encoding', default='utf-16')
+parser.add_argument('--filter', default=None, help="Filter function to run. Does NOT recompute transmission events.")
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    show(read(args.filepath, args.encoding))
+    data = read(args.filepath, args.encoding)
+    if args.filter:
+        data = dofilter(data, filters[args.filter])
+    show(data)
