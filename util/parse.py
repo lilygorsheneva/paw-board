@@ -1,12 +1,14 @@
-from matplotlib import pyplot as plt
+import argparse
+import fileinput
 import re
-import codecs
-from dataclasses import dataclass, field
 from typing import List
 
-sensor_data_pattern = re.compile('.*\((\d+)\) SENSOR: SENSORLOG \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|')
-input_accept_pattern = re.compile('I \((\d+)\) ENCODING: \| (.) \|')
-calibration_pattern = re.compile('I \((\d+)\) SENSOR: Thresholds \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|')
+from dataclasses import dataclass, field
+from matplotlib import pyplot as plt
+
+sensor_data_pattern = re.compile(r'.*\((\d+)\) SENSOR: SENSORLOG \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|')
+input_accept_pattern = re.compile(r'I \((\d+)\) ENCODING: \| (.) \|')
+calibration_pattern = re.compile(r'I \((\d+)\) SENSOR: Thresholds \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|')
 
 @dataclass
 class LogDump:
@@ -19,14 +21,13 @@ class LogDump:
 
     tx_events: List[tuple[int, str]]= field(default_factory=list)
 
-def read(filename):
+def read(filename, encoding):
     data = LogDump(filename=filename)
     for i in range(5): 
         data.analog_readings.append([])
         data.calibration_readings.append([])
 
-
-    with codecs.open(filename, 'r', encoding = 'utf-16', errors='ignore') as sensorlog:
+    with fileinput.input(files=filename, encoding=encoding) as sensorlog:
         for line in sensorlog:
             sensor_data = sensor_data_pattern.match(line)
             if sensor_data:
@@ -42,7 +43,9 @@ def read(filename):
                     
             tx_data = input_accept_pattern.match(line)
             if tx_data:
-                data.tx_events.append((  int(tx_data.group(1)), tx_data.group(2),  ))
+                char = tx_data.group(2)
+                if char == chr(127): char = 'del'
+                data.tx_events.append((  int(tx_data.group(1)), char,  ))
 
         
 
@@ -67,6 +70,10 @@ def show(data):
     showtxevents(data)
     plt.show()
 
+parser = argparse.ArgumentParser()
+parser.add_argument('filepath')
+parser.add_argument('--encoding', default='utf-16')
 
 if __name__ == "__main__":
-    show(read('sensorlog'))
+    args = parser.parse_args()
+    show(read(args.filepath, args.encoding))
