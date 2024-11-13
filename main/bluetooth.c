@@ -100,7 +100,7 @@ static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *
     }
     case ESP_HIDD_EVENT_BLE_DISCONNECT:
     {
-        enter_state(KEYBOARD_STATE_BT_UNCONNECTED);
+        update_bt_state(KEYBOARD_STATE_BT_UNCONNECTED);
         ESP_LOGI(TAG, "ESP_HIDD_EVENT_BLE_DISCONNECT");
         esp_ble_gap_start_advertising(&hidd_adv_params);
         break;
@@ -126,12 +126,12 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         esp_ble_gap_security_rsp(param->ble_security.ble_req.bd_addr, true);
         break;
     case ESP_GAP_BLE_PASSKEY_REQ_EVT:
-        enter_state(KEYBOARD_STATE_BT_PASSKEY_ENTRY);
+        update_bt_state(KEYBOARD_STATE_BT_PASSKEY_ENTRY);
         ESP_LOGI(TAG, "ESP_GAP_BLE_PASSKEY_REQ_EVT");
         memcpy(passkey_response_addr, param->ble_security.ble_req.bd_addr, sizeof(esp_bd_addr_t));
         break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
-        enter_state(KEYBOARD_STATE_BT_CONNECTED);
+        update_bt_state(KEYBOARD_STATE_BT_CONNECTED);
         esp_bd_addr_t bd_addr;
         memcpy(bd_addr, param->ble_security.auth_cmpl.bd_addr, sizeof(esp_bd_addr_t));
         break;
@@ -142,7 +142,7 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 
 void bt_init(void)
 {
-    enter_state(KEYBOARD_STATE_BT_UNCONNECTED);
+    update_bt_state(KEYBOARD_STATE_BT_UNCONNECTED);
 
     esp_err_t ret;
 

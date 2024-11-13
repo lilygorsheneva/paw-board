@@ -19,11 +19,13 @@ enum
 };
 
 #define MASK_KEYBOARD_STATE_BT (KEYBOARD_STATE_BT_UNCONNECTED | KEYBOARD_STATE_BT_PASSKEY_ENTRY | KEYBOARD_STATE_BT_CONNECTED)
-#define MASK_KEYBOARD_STATE_SENSOR (KEYBOARD_STATE_SENSOR_NORMAL | KEYBOARD_STATE_SENSOR_CALIBRATION | KEYBOARD_STATE_SENSOR_LOGGING)
+#define MASK_KEYBOARD_STATE_SENSOR (KEYBOARD_STATE_SENSOR_NORMAL | KEYBOARD_STATE_SENSOR_CALIBRATION)
 
+void update_state(void);
 
-void enter_state(keyboard_state_t new_state);
-void exit_state(keyboard_state_t new_state);
+// Allow BT stack to set its state async, polling loop will sync occasionally.
+void update_bt_state(keyboard_state_t new_state);
+
 inline bool test_state(keyboard_state_t state)
 {
     return (device_state & state) != 0;

@@ -25,6 +25,8 @@ void hid_task(void *pvParameters)
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while (1)
     {
+        update_state();
+
         if (test_state(KEYBOARD_STATE_SENSOR_LOGGING)) {
             vTaskDelay(1);
         } else {
@@ -55,7 +57,6 @@ void hid_task(void *pvParameters)
 void app_main(void)
 {
     bt_init();
-
     pressure_sensor_init();
     initialize_feedback();
 
