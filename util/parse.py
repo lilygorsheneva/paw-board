@@ -6,9 +6,9 @@ from typing import List
 from dataclasses import dataclass, field
 from matplotlib import pyplot as plt
 
-sensor_data_pattern = re.compile(r'.*\((\d+)\) SENSOR: SENSORLOG \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|')
-input_accept_pattern = re.compile(r'I \((\d+)\) ENCODING: \| (.) \|')
-calibration_pattern = re.compile(r'I \((\d+)\) SENSOR: Thresholds \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|')
+sensor_data_pattern = re.compile(r'.*\((\d+)\) SENSOR: SENSORLOG \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|.*')
+input_accept_pattern = re.compile(r'.*\((\d+)\) ENCODING: \| (.) \|.*')
+calibration_pattern = re.compile(r'.*\((\d+)\) SENSOR: Thresholds \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \| *(\d*) \|.*')
 
 @dataclass
 class LogDump:
