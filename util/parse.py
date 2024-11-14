@@ -1,6 +1,7 @@
 import argparse
 import copy
 import fileinput
+import itertools
 import re
 from typing import List
 
@@ -74,25 +75,81 @@ def show(data):
     showtxevents(data)
     plt.show()
 
-def movingwindowfilter(input: List, size = 5):
+def movingAverage(readings: List, size = 5, init_value=0):
     output = []
 
     winidx = 0
-    window = [0] * size
-    acc = 0
-    for i in input:
-        acc -= window[winidx]
+    values = [init_value] * size
+    acc = init_value * size
+    for i in readings:
+        acc -= values[winidx]
         acc += i
-        window[winidx] = i
+        values[winidx] = i
         winidx = (winidx+1) % size
         output.append(acc/size)
     return output
 
-filters['movingwindow'] = movingwindowfilter
-filters['movingwindowlong'] = lambda readings: movingwindowfilter(readings, 1000)
-filters['movingwindow2pass'] = lambda readings: movingwindowfilter(movingwindowfilter(readings))
-filters['movingwindowautocalibrate'] = lambda readings: [max(value - calibration, 0) for value,calibration in zip(movingwindowfilter(readings, 5),movingwindowfilter(readings, 500)) ]
+def movingVariance(readings: List, size = 5, init_value=0):
+    output = []
+    winidx = 0
+    values = [init_value] * size
+    squares = [init_value*init_value] * size
+    
+    acc =  init_value * size
+    square_acc = init_value * init_value * size
 
+    for i in readings:
+        acc -= values[winidx]
+        acc += i
+        values[winidx] = i
+        winidx = (winidx+1) % size
+
+        square_acc -= squares[winidx]
+        square_acc += i * i
+        squares[winidx] = i * i
+        winidx = (winidx+1) % size
+
+        variance = (square_acc - (acc * acc )/size)/(size-1)
+        output.append(variance)
+
+    return output
+
+def autocalibrateWithStandardDev(readings, inner_window=5, outer_window=500):
+    output = []
+
+    filtered = movingAverage(readings, inner_window)
+
+    baseline = movingAverage(readings, outer_window, 5000) 
+
+    variance = movingVariance(readings, outer_window, 0)
+
+    for f, b, v in zip(filtered, baseline, variance):
+        if f > b and (f - b)*(f - b) > v:
+            output.append(f)
+        else: 
+            output.append(0)
+
+    return output
+
+filters['movingwindow'] = movingAverage
+filters['movingwindowlong'] = lambda readings: movingAverage(readings, 500)
+filters['movingwindow2pass'] = lambda readings: movingAverage(movingwindowfilter(readings))
+
+
+movingwindowautocalibrate = lambda readings: [max(value - calibration, 0) for value,calibration in zip(movingAverage(readings, size=5),movingAverage(readings, size=1000, init_value=5000)) ]
+filters['movingwindowautocalibrate']  = movingwindowautocalibrate
+
+
+quantizevalues = itertools.cycle(range(500,500*6,500))
+quantize = lambda function: lambda readings: (lambda readings, value: [value if i else 0 for i in function(readings)])(readings, next(quantizevalues))
+filters['qtest'] = quantize(lambda readings: [1 for i in readings])
+
+
+filters['movingwindowautocalibratequantize'] =  quantize(movingwindowautocalibrate)
+
+filters['autocalstddev'] = autocalibrateWithStandardDev
+filters['autocalstddevquantize'] = quantize(autocalibrateWithStandardDev)
+filters['showvariance'] = movingVariance
 
 def dofilter(data, filter_fn):
     newdata = copy.deepcopy(data)
@@ -102,7 +159,7 @@ def dofilter(data, filter_fn):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('filepath',)
-parser.add_argument('--encoding', default='utf-16')
+parser.add_argument('--encoding', default='utf-8')
 parser.add_argument('--filter', default=None, help="Filter function to run. Does NOT recompute transmission events.")
 
 if __name__ == "__main__":
