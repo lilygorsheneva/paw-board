@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -113,6 +114,61 @@ void processInputPinStabilityMode(uint8_t i)
   }
 
   analog_values[i] = value;
+}
+
+void processInputPinsAutoCalibrate(){
+  /* Autocalibration based on a difference of two moving averages.
+    If the average of the past SHORT_SAMPLE_WINDOW_LEN is greater than 
+    the average of the past LONG_SAMPLE_WINDOW_LEN by more than a standard
+    deviaton, consider the pin pressed.
+
+    This is effectively a very memory hungry (1kb per finger) bandpass filter. 
+    However, until I come up with a way to identify or completely zero out 
+    the low-amplitude noise that remains after a bandpass filter,
+    this will have to suffice. Reading DSP textbooks takes time. 
+  */
+
+  #define SHORT_SAMPLE_WINDOW_LEN 5
+  #define LONG_SAMPLE_WINDOW_LEN 500
+  #define LONG_INIT_VALUE 4000
+  
+  
+  static uint16_t _short_window[SENSOR_COUNT*SHORT_SAMPLE_WINDOW_LEN] = {0};
+  static uint16_t _long_window[SENSOR_COUNT*LONG_SAMPLE_WINDOW_LEN] = {LONG_INIT_VALUE};
+  static uint16_t _short_window_idx = 0;
+  static uint16_t _long_window_idx = 0;
+
+  static uint16_t _short_average[SENSOR_COUNT] = {0};
+  static uint16_t _long_average[SENSOR_COUNT] = {LONG_INIT_VALUE};
+
+  static uint32_t _long_variance[SENSOR_COUNT] = {LONG_INIT_VALUE};
+
+  
+  for (int i = 0; i < SENSOR_COUNT; ++i){
+    // https://jonisalonen.com/2014/efficient-and-accurate-rolling-standard-deviation/
+
+    _short_average[i] = (adc_raw[i] - _short_window[_short_window_idx+i])/SHORT_SAMPLE_WINDOW_LEN + _short_average[i];
+    _short_window[_short_window_idx+i] = adc_raw[i];
+    _short_window_idx = (_short_window_idx + SENSOR_COUNT) % SHORT_SAMPLE_WINDOW_LEN;
+
+
+
+    int newval = adc_raw[i];
+    int oldval = _long_window[_long_window_idx+i];
+    _long_window[_long_window_idx+i] = adc_raw[i];
+    _long_window_idx = (_long_window_idx + SENSOR_COUNT) % LONG_SAMPLE_WINDOW_LEN;
+
+    uint16_t old_long_average = _long_average[i];
+    uint16_t new_long_average = (newval - oldval)/LONG_SAMPLE_WINDOW_LEN + old_long_average;
+    _long_average[i] = new_long_average;
+     
+    _long_variance[i] += (newval-oldval)*(newval-new_long_average+oldval-old_long_average)/(LONG_SAMPLE_WINDOW_LEN-1);
+
+    uint32_t stddev = sqrt(_long_variance[i]);
+
+    pins_pressed[i] = _short_average[i] > _long_average[i] + stddev;
+
+  }
 }
 
 void processInputPins(void)
