@@ -74,8 +74,7 @@ def show(data):
     showtxevents(data)
     plt.show()
 
-def movingwindowfilter(input: List):
-    size = 5
+def movingwindowfilter(input: List, size = 5):
     output = []
 
     winidx = 0
@@ -90,7 +89,9 @@ def movingwindowfilter(input: List):
     return output
 
 filters['movingwindow'] = movingwindowfilter
-filters['movingwindow2pass'] = lambda data: movingwindowfilter(movingwindowfilter(data))
+filters['movingwindowlong'] = lambda readings: movingwindowfilter(readings, 1000)
+filters['movingwindow2pass'] = lambda readings: movingwindowfilter(movingwindowfilter(readings))
+filters['movingwindowautocalibrate'] = lambda readings: [max(value - calibration, 0) for value,calibration in zip(movingwindowfilter(readings, 5),movingwindowfilter(readings, 500)) ]
 
 
 def dofilter(data, filter_fn):
