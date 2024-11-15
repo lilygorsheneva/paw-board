@@ -129,7 +129,7 @@ void processInputPinsAutoCalibrate(){
   */
 
   #define SHORT_SAMPLE_WINDOW_LEN 5
-  #define LONG_SAMPLE_WINDOW_LEN 500
+  #define LONG_SAMPLE_WINDOW_LEN 100
   
   
   static uint16_t _short_window[SENSOR_COUNT][SHORT_SAMPLE_WINDOW_LEN] = {0};
@@ -141,11 +141,11 @@ void processInputPinsAutoCalibrate(){
   // All of these are NOT divided until final use to avoid accumulation of precision errors.
   static int32_t _short_average[SENSOR_COUNT] = {0};  // Divide by SHORT_SAMPLE_WINDOW_LEN before use
   static int32_t _long_average[SENSOR_COUNT] = {0};   // Divide by LONG_SAMPLE_WINDOW_LEN
-  static double _long_variance[SENSOR_COUNT] = {0};  // It's complicated
+  static int64_t _long_variance[SENSOR_COUNT] = {0};  // It's complicated
 
   int32_t true_short_average[SENSOR_COUNT];
   int32_t true_long_average[SENSOR_COUNT];
-  double true_long_stddev[SENSOR_COUNT];
+  int32_t true_long_stddev[SENSOR_COUNT];
 
   for (int i = 0; i < SENSOR_COUNT; ++i){
 
@@ -154,12 +154,12 @@ void processInputPinsAutoCalibrate(){
 
     true_short_average[i] = _short_average[i]/SHORT_SAMPLE_WINDOW_LEN;
 
-    int newval = adc_raw[i];
-    int oldval = _long_window[i][_long_window_idx];
+    int64_t newval = adc_raw[i];
+    int64_t oldval = _long_window[i][_long_window_idx];
     _long_window[i][_long_window_idx] = adc_raw[i];
 
-    int32_t old_long_average = _long_average[i];
-    int32_t new_long_average =  old_long_average + newval - oldval;
+    int64_t old_long_average = _long_average[i];
+    int64_t new_long_average =  old_long_average + newval - oldval;
     _long_average[i] = new_long_average;
      
     true_long_average[i] = _long_average[i]/LONG_SAMPLE_WINDOW_LEN;
@@ -168,8 +168,8 @@ void processInputPinsAutoCalibrate(){
     // Formula from https://jonisalonen.com/2014/efficient-and-accurate-rolling-standard-deviation/
 
     // Since long_average is LONG_SAMPLE_WINDOW_LEN bigger than it should be, multiply the other values in the second term by that.
-    _long_variance[i] =  _long_variance[i] + (newval-oldval)*(newval - new_long_average/LONG_SAMPLE_WINDOW_LEN + oldval - old_long_average/LONG_SAMPLE_WINDOW_LEN)/(LONG_SAMPLE_WINDOW_LEN-1);
-    double true_long_variance = _long_variance[i];
+    _long_variance[i] =  _long_variance[i] + (newval-oldval)*(newval*LONG_SAMPLE_WINDOW_LEN - new_long_average + oldval*LONG_SAMPLE_WINDOW_LEN - old_long_average);
+    int64_t true_long_variance = _long_variance[i]/(LONG_SAMPLE_WINDOW_LEN*(LONG_SAMPLE_WINDOW_LEN-1));
 
     true_long_stddev[i] = sqrt(true_long_variance);
 
@@ -182,7 +182,7 @@ void processInputPinsAutoCalibrate(){
   {
     ESP_LOGI(TAG, "SMOOTHED        | %4ld | %4ld | %4ld | %4ld | %4ld |", true_short_average[0],  true_short_average[1],  true_short_average[2], true_short_average[3], true_short_average[4]);
     ESP_LOGI(TAG, "AUTO THRESHOLDS | %4ld | %4ld | %4ld | %4ld | %4ld |", true_long_average[0],  true_long_average[1],  true_long_average[2], true_long_average[3], true_long_average[4]);
-    ESP_LOGI(TAG, "DEVIATION       | %4f | %4lf | %4lf | %4lf | %4lf |", true_long_stddev[0],  true_long_stddev[1],  true_long_stddev[2], true_long_stddev[3], true_long_stddev[4]);
+    ESP_LOGI(TAG, "DEVIATION       | %4ld | %4ld | %4ld | %4ld | %4ld |", true_long_stddev[0],  true_long_stddev[1],  true_long_stddev[2], true_long_stddev[3], true_long_stddev[4]);
   }  
 }
 
@@ -301,8 +301,8 @@ char pressure_sensor_read(void)
   switch (device_state & MASK_KEYBOARD_STATE_SENSOR)
   {
   case KEYBOARD_STATE_SENSOR_NORMAL:
-    //processInputPinsAutoCalibrate();
-    processInputPins();
+    processInputPinsAutoCalibrate();
+    //processInputPins();
     return pressure_bits_to_num();
     break;
   case KEYBOARD_STATE_SENSOR_CALIBRATION:
