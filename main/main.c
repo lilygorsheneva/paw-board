@@ -27,11 +27,15 @@ void hid_task(void *pvParameters)
     {
         update_state();
 
-        if (test_state(KEYBOARD_STATE_SENSOR_LOGGING)) {
-            vTaskDelay(1);
-        } else {
-            vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
-        }
+        // Polling period of 10ms to work with the fixed window sizes used by autocalibration.
+        // Any future filtering attempts should use polling frequency when setting thresholds.
+        vTaskDelay(1);
+
+        // if (test_state(KEYBOARD_STATE_SENSOR_LOGGING)) {
+        //     vTaskDelay(1);
+        // } else {
+        //     vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
+        // }
         char pins = pressure_sensor_read();
         out = decode_and_feedback(pins, device_state);
 
