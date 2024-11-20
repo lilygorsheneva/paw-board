@@ -1,6 +1,8 @@
 #ifndef HAPTICS_H__
 #define HAPTICS_H__
 
+#include "constants.h"
+
 typedef enum 
 {
     HAPTICS_MODE_SINGLE,

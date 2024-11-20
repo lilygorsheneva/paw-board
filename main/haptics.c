@@ -9,6 +9,7 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
+#include "constants.h"
 #include "haptics.h"
 #include "sensors.h"
 
@@ -41,7 +42,7 @@ static void single_pwm_init(void)
       .channel = LEDC_CHANNEL,
       .timer_sel = LEDC_TIMER,
       .intr_type = LEDC_INTR_DISABLE,
-      .gpio_num = LEDC_OUTPUT_IO,
+      .gpio_num = SINGLE_MOTOR_GPIO_OUTPUT,
       .duty = (1 << 13) - 1, // Set duty to 0%
       .hpoint = 0};
   ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
@@ -54,17 +55,29 @@ void scale_vibration_to_pincount(bool force_off, bool force_full)
   uint32_t duty = (1 << 13) - 1;
   if (force_off)
   {
+    #ifdef FEEDBACK_COMMON_POSITIVE
     duty = (1 << 13) - 1;
+    #else 
+    duty = 0;
+    #endif
   }
   else if (force_full)
   {
+    #ifdef FEEDBACK_COMMON_POSITIVE
     duty = 0;
+    #else 
+    duty = (1 << 13) - 1;
+    #endif
   }
   else
   {
     int c = pins_pressed_count();
     const uint32_t duty_increment = (1 << 13) / 12 - 1;
+    #ifdef FEEDBACK_COMMON_POSITIVE
     duty = (6 - c) * duty_increment;
+    #else
+    duty = (6 + c) * duty_increment;
+    #endif
   }
 
   ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, duty));
@@ -73,14 +86,10 @@ void scale_vibration_to_pincount(bool force_off, bool force_full)
 
 // Multi-motor per-finger feedback. Not currently PWM.
 
-#define GPIO_OUTPUT_IO_0 10
-#define GPIO_OUTPUT_IO_1 11
-#define GPIO_OUTPUT_IO_2 12
-#define GPIO_OUTPUT_IO_3 13
-#define GPIO_OUTPUT_IO_4 14
-#define GPIO_OUTPUT_PIN_SEL ((1ULL << GPIO_OUTPUT_IO_0)) | ((1ULL << GPIO_OUTPUT_IO_1)) | ((1ULL << GPIO_OUTPUT_IO_2)) | ((1ULL << GPIO_OUTPUT_IO_3)) | ((1ULL << GPIO_OUTPUT_IO_4))
 
-static gpio_num_t output_gpio_ids[] = {GPIO_OUTPUT_IO_0, GPIO_OUTPUT_IO_1, GPIO_OUTPUT_IO_2, GPIO_OUTPUT_IO_3, GPIO_OUTPUT_IO_4};
+#define GPIO_OUTPUT_PIN_SEL ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_0)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_1)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_2)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_3)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_4))
+
+static gpio_num_t output_gpio_ids[] = {MULTI_MOTOR_GPIO_OUTPUT_0, MULTI_MOTOR_GPIO_OUTPUT_1, MULTI_MOTOR_GPIO_OUTPUT_2, MULTI_MOTOR_GPIO_OUTPUT_3, MULTI_MOTOR_GPIO_OUTPUT_4};
 
 static void multi_gpio_init(void)
 {
@@ -99,26 +108,31 @@ static void multi_gpio_init(void)
 
 void multi_motor_feedback(bool force_off, bool force_full)
 {
-  // IMPORTANT: Swap to common ground instead of common positive for this to be sane.
+#ifdef FEEDBACK_COMMON_POSITIVE
+#define FEEDBACK_SIGN_OPERATOR !
+#else
+#define FEEDBACK_SIGN_OPERATOR 
+#endif
+
   if (force_off)
   {
     for (int i = 0; i < 5; ++i)
     {
-      gpio_set_level(output_gpio_ids[i], 0);
+      gpio_set_level(output_gpio_ids[i], FEEDBACK_SIGN_OPERATOR 0);
     }
   }
   else if (force_full)
   {
     for (int i = 0; i < 5; ++i)
     {
-      gpio_set_level(output_gpio_ids[i], 1);
+      gpio_set_level(output_gpio_ids[i], FEEDBACK_SIGN_OPERATOR 1);
     }
   }
   else
   {
     for (int i = 0; i < 5; ++i)
     {
-      gpio_set_level(output_gpio_ids[i], pins_pressed[i]);
+      gpio_set_level(output_gpio_ids[i], FEEDBACK_SIGN_OPERATOR pins_pressed[i]);
     }
   }
 }

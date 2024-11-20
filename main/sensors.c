@@ -9,21 +9,20 @@
 #include "esp_adc/adc_oneshot.h"
 #include "driver/gpio.h"
 
+#include "constants.h"
 #include "sensors.h"
 #include "state.h"
 
 #define FORCE_ANALOG_LOG false
 
-// 17 chosen to not conflict with multi-motor feedback. In the future, this may be better as an rtc gpio
-#define GPIO_CALIBRATION_PIN 17
-#define GPIO_LOGGING_PIN 18
+
 #define JUMPERS_BIT_MASK ((1ULL << GPIO_CALIBRATION_PIN) | (1ULL << GPIO_LOGGING_PIN))
 
 const static char *TAG = "SENSOR";
 
 #define SENSOR_COUNT 5
 
-static adc_channel_t channels[] = {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3, ADC_CHANNEL_4};
+static adc_channel_t channels[] = SENSOR_ADC_CHANNELS;
 
 static int thresholds[] = {900, 2000, 2300, 1800, 1000};
 static int debounce[] = {100, 100, 100, 100, 100};
@@ -36,6 +35,12 @@ bool pins_pressed[SENSOR_COUNT];
 static int calibration_low[SENSOR_COUNT] = {0};
 static int calibration_high[SENSOR_COUNT] = {0};
 
+#ifdef JUMPERS_COMMON_POSITIVE
+#define JUMPERS_SIGN_OPERATOR 
+#else
+#define JUMPERS_SIGN_OPERATOR !
+#endif
+
 static adc_oneshot_unit_handle_t adc1_handle;
 void pressure_sensor_init(void)
 {
@@ -46,7 +51,7 @@ void pressure_sensor_init(void)
 
   adc_oneshot_chan_cfg_t config = {
       .bitwidth = ADC_BITWIDTH_DEFAULT,
-      .atten = ADC_ATTEN_DB_6,
+      .atten = ADC_ATTENUATION,
   };
 
   for (int i = 0; i < SENSOR_COUNT; ++i)
@@ -58,12 +63,21 @@ void pressure_sensor_init(void)
   io_conf.intr_type = GPIO_INTR_DISABLE;
   io_conf.mode = GPIO_MODE_INPUT;
   io_conf.pin_bit_mask = JUMPERS_BIT_MASK;
-  io_conf.pull_down_en = 1;
-  io_conf.pull_up_en = 0;
+  io_conf.pull_down_en = JUMPERS_SIGN_OPERATOR 1;
+  io_conf.pull_up_en = JUMPERS_SIGN_OPERATOR 0;
   gpio_config(&io_conf);
 
   ESP_LOGI(TAG, "Init adc");
 }
+
+#ifdef ADC_COMMON_POSITIVE
+#define ADC_LT_OPERATOR <
+#define ADC_GE_OPERATOR >
+#else
+#define ADC_LT_OPERATOR >
+#define ADC_GE_OPERATOR <
+#endif
+
 
 // Naive approach to handling a read. Hardcoded threshold with
 // a small debouce window later.
@@ -73,54 +87,54 @@ void processInputPin(uint8_t i)
   analog_values[i] = value;
   if (!pins_pressed[i])
   {
-    if (value >= thresholds[i])
+    if (value ADC_GE_OPERATOR thresholds[i])
     {
       pins_pressed[i] = true;
     }
   }
   else
   {
-    if (value < thresholds[i] - debounce[i])
+    if (value ADC_LT_OPERATOR thresholds[i] - debounce[i])
     {
       pins_pressed[i] = false;
     }
   }
 }
 
-// A more sophisticated pin read mode. Track pin fluctuations.
-void processInputPinStabilityMode(uint8_t i)
-{
-  // Maybe this can be dynamic
-  const int noise_floor = 10;
+// // A more sophisticated pin read mode. Track pin stability.
+// void processInputPinStabilityMode(uint8_t i)
+// {
+//   // Maybe this can be dynamic
+//   const int noise_floor = 10;
 
-  int value = adc_raw[i];
-  if (value <= noise_floor)
-  {
-    pins_pressed[i] = false;
-    pins_unstable[i] = false;
-    analog_values[i] = value;
-    return;
-  }
+//   int value = adc_raw[i];
+//   if (value <= noise_floor)
+//   {
+//     pins_pressed[i] = false;
+//     pins_unstable[i] = false;
+//     analog_values[i] = value;
+//     return;
+//   }
 
-  pins_unstable[i] = (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) > 0.1);
+//   pins_unstable[i] = (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) > 0.1);
 
-  if (value >= thresholds[i])
-  {
-    pins_pressed[i] = true;
-  }
-  else if (value < thresholds[i] - debounce[i])
-  {
-    pins_pressed[i] = false;
-  }
+//   if (value >= thresholds[i])
+//   {
+//     pins_pressed[i] = true;
+//   }
+//   else if (value < thresholds[i] - debounce[i])
+//   {
+//     pins_pressed[i] = false;
+//   }
 
-  analog_values[i] = value;
-}
+//   analog_values[i] = value;
+// }
 
 void processInputPins(void)
 {
   for (int i = 0; i < SENSOR_COUNT; ++i)
   {
-    processInputPinStabilityMode(i);
+    processInputPin(i);
   }
 }
 
@@ -155,11 +169,16 @@ char pressure_bits_to_num(void)
   return buf;
 }
 
+
+
 jumper_states_t read_jumpers(void)
 {
+
+  bool calibration = JUMPERS_SIGN_OPERATOR gpio_get_level(GPIO_CALIBRATION_PIN); 
+  bool logging = JUMPERS_SIGN_OPERATOR gpio_get_level(GPIO_LOGGING_PIN);
   jumper_states_t ret = {
-      .calibration = gpio_get_level(GPIO_CALIBRATION_PIN),
-      .enhanced_logging = gpio_get_level(GPIO_LOGGING_PIN)};
+      .calibration = calibration,
+      .enhanced_logging = logging};
   return ret;
 }
 
