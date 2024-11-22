@@ -12,6 +12,8 @@
 #include "constants.h"
 #include "sensors.h"
 #include "state.h"
+#include "filter.h"
+
 
 #define FORCE_ANALOG_LOG false
 
@@ -22,16 +24,10 @@ const static char *TAG = "SENSOR";
 
 static adc_channel_t channels[] = SENSOR_ADC_CHANNELS;
 
-static int thresholds[] = {900, 2000, 2300, 1800, 1000};
-static int debounce[] = {100, 100, 100, 100, 100};
 
 static int adc_raw[5];
-static int analog_values[SENSOR_COUNT];
-static bool pins_unstable[SENSOR_COUNT];
 bool pins_pressed[SENSOR_COUNT];
 
-static int calibration_low[SENSOR_COUNT] = {0};
-static int calibration_high[SENSOR_COUNT] = {0};
 
 #ifdef JUMPERS_COMMON_POSITIVE
 #define JUMPERS_SIGN_OPERATOR 
@@ -76,68 +72,9 @@ void pressure_sensor_init(void)
 #define ADC_GE_OPERATOR <
 #endif
 
-
-// Naive approach to handling a read. Hardcoded threshold with
-// a small debouce window later.
-void processInputPin(uint8_t i)
-{
-  int value = adc_raw[i];
-  analog_values[i] = value;
-  if (!pins_pressed[i])
-  {
-    if (value ADC_GE_OPERATOR thresholds[i])
-    {
-      pins_pressed[i] = true;
-    }
-  }
-  else
-  {
-    if (value ADC_LT_OPERATOR thresholds[i] - debounce[i])
-    {
-      pins_pressed[i] = false;
-    }
-  }
-}
-
-// // A more sophisticated pin read mode. Track pin stability.
-// void processInputPinStabilityMode(uint8_t i)
-// {
-//   // Maybe this can be dynamic
-//   const int noise_floor = 10;
-
-//   int value = adc_raw[i];
-//   if (value <= noise_floor)
-//   {
-//     pins_pressed[i] = false;
-//     pins_unstable[i] = false;
-//     analog_values[i] = value;
-//     return;
-//   }
-
-//   pins_unstable[i] = (fabsf((float)(value - analog_values[i]) / (float)(analog_values[i])) > 0.1);
-
-//   if (value >= thresholds[i])
-//   {
-//     pins_pressed[i] = true;
-//   }
-//   else if (value < thresholds[i] - debounce[i])
-//   {
-//     pins_pressed[i] = false;
-//   }
-
-//   analog_values[i] = value;
-// }
-
-void processInputPins(void)
-{
-  for (int i = 0; i < SENSOR_COUNT; ++i)
-  {
-    processInputPin(i);
-  }
-}
-
 int pins_pressed_count(void)
 {
+  if (test_state(KEYBOARD_STATE_SENSOR_CALIBRATION)){return 0;}
   char buf = 0;
 
   for (int i = 0; i < SENSOR_COUNT; ++i)
@@ -145,16 +82,6 @@ int pins_pressed_count(void)
     buf = buf + pins_pressed[i];
   }
   return buf;
-}
-
-bool all_pins_stable(void)
-{
-  bool unstable = false;
-  for (int i = 0; i < SENSOR_COUNT; ++i)
-  {
-    unstable = unstable & pins_unstable[i];
-  }
-  return !unstable;
 }
 
 char pressure_bits_to_num(void)
@@ -166,8 +93,6 @@ char pressure_bits_to_num(void)
   }
   return buf;
 }
-
-
 
 jumper_states_t read_jumpers(void)
 {
@@ -188,33 +113,6 @@ void pressure_sensor_read_raw(void)
   }
 }
 
-void calibration_start(void)
-{
-  ESP_LOGI(TAG, "Enter calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
-
-  for (int i = 0; i < SENSOR_COUNT; ++i)
-  {
-    pins_pressed[i] = false;
-    calibration_low[i] = adc_raw[i];
-  }
-};
-
-void calibration_end(void)
-{
-
-  ESP_LOGI(TAG, "Exit calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
-
-  for (int i = 0; i < SENSOR_COUNT; ++i)
-  {
-    calibration_high[i] = adc_raw[i];
-
-    thresholds[i] = (calibration_high[i] + calibration_low[i]) / 2;
-    debounce[i] = abs(calibration_high[i] - calibration_low[i]) / 8;
-  }
-  ESP_LOGI(TAG, "Thresholds | %4d | %4d | %4d | %4d | %4d |", thresholds[0], thresholds[1], thresholds[2], thresholds[3], thresholds[4]);
-  ESP_LOGI(TAG, "Debounce | %4d | %4d | %4d | %4d | %4d |", debounce[0], debounce[1], debounce[2], debounce[3], debounce[4]);
-};
-
 void pressure_sensor_calibration_manage()
 {
   static bool last_calibration_state = false;
@@ -225,11 +123,11 @@ void pressure_sensor_calibration_manage()
   {
     if (new_calibration_state)
     {
-      calibration_start();
+      default_filter_calibrate_start(adc_raw);
     }
     else
     {
-      calibration_end();
+      default_filter_calibrate_end(adc_raw);
     }
     last_calibration_state = new_calibration_state;
   }
@@ -239,6 +137,7 @@ char pressure_sensor_read(void)
 {
   pressure_sensor_read_raw();
   pressure_sensor_calibration_manage();
+  default_filter_process(adc_raw, pins_pressed);
 
   if (test_state(KEYBOARD_STATE_SENSOR_LOGGING))
   {
@@ -248,7 +147,6 @@ char pressure_sensor_read(void)
   switch (device_state & MASK_KEYBOARD_STATE_SENSOR)
   {
   case KEYBOARD_STATE_SENSOR_NORMAL:
-    processInputPins();
     return pressure_bits_to_num();
     break;
   case KEYBOARD_STATE_SENSOR_CALIBRATION:

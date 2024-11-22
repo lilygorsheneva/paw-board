@@ -15,6 +15,10 @@
 #include "constants.h"
 #include "state.h"
 #include "bluetooth.h"
+#include "old_filter.h"
+#include "filter.h"
+#include "iir_filter.h"
+
 
 const static char *TAG = "MAIN";
 
@@ -62,6 +66,17 @@ void app_main(void)
 {
     bt_init();
     pressure_sensor_init();
+
+    iir_filter_params filter_params = {
+        .sample_rate = 100,
+        .target_frequency = 15,
+        .qfactor = 0.5,
+        .calibration_peak_multiplier = 2.5
+    };
+    default_filter_init(init_iir_filter(&filter_params));
+
+    //default_filter_init(init_old_filter());
+
     initialize_feedback();
 
     ESP_LOGI(TAG, "Start main loop");
