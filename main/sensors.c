@@ -20,8 +20,6 @@
 
 const static char *TAG = "SENSOR";
 
-#define SENSOR_COUNT 5
-
 static adc_channel_t channels[] = SENSOR_ADC_CHANNELS;
 
 static int thresholds[] = {900, 2000, 2300, 1800, 1000};
