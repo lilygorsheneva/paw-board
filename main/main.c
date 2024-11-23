@@ -71,7 +71,8 @@ void app_main(void)
         .sample_rate = 100,
         .target_frequency = 15,
         .qfactor = 0.5,
-        .calibration_peak_multiplier = 2.5
+        .calibration_peak_multiplier = 2.5,
+        .calibration_time_seconds = 2
     };
     default_filter_init(init_iir_filter(&filter_params));
 

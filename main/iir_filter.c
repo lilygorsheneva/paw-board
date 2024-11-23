@@ -52,15 +52,20 @@ void iir_sensor_process(filter_handle_t filter_handle, int *adc_raw, bool *pins_
     }
     else
     {
+        data->calibration_countdown--;
+        // Overtime represents a startup initialization delay, allowing filters to stabilize.
+        if (data->calibration_countdown > (data->params.calibration_time_seconds) * (data->params.sample_rate)) {
+            return;
+        }
         for (int i = 0; i < SENSOR_COUNT; ++i)
         {
             data->thresholds[i] = data->thresholds[i] ADC_GE_OPERATOR out[i] ? data->thresholds[i] : out[i];
         }
-        data->calibration_countdown--;
         if (data->calibration_countdown == 0)
         {
             for (int i = 0; i < SENSOR_COUNT; ++i)
             {
+                // Not ideal but I don't know how to auto-calculate a good one at the moment.
                 data->thresholds[i] = data->thresholds[i] * data->params.calibration_peak_multiplier;
             }
             ESP_LOGI(TAG, "Exit IIR calibration | %4f | %4f | %4f | %4f | %4f |", data->thresholds[0], data->thresholds[1], data->thresholds[2], data->thresholds[3], data->thresholds[4]);
@@ -75,7 +80,9 @@ void iir_filter_calibration_start(filter_handle_t filter_handle, int *adc_raw)
     ESP_LOGI(TAG, "Enter IIR calibration");
 
     iir_filter_data *data = (iir_filter_data *)filter_handle->filter_data;
-    data->calibration_countdown = 2*data->params.sample_rate;
+
+    // Sample N seconds of noise.
+    data->calibration_countdown = (data->params.calibration_time_seconds) * (data->params.sample_rate);
       
     for (int i = 0; i < SENSOR_COUNT; ++i)
         {
@@ -111,7 +118,7 @@ void* init_iir_filter(iir_filter_params* params)
         return NULL;
     }
 
-    iir_filter_calibration_start(filter_handle, NULL);
+    data->calibration_countdown = (data->params.calibration_time_seconds + 2) * (data->params.sample_rate);
 
     return filter_handle;
 }

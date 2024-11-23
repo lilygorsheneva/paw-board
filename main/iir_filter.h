@@ -6,6 +6,7 @@ typedef struct {
     float target_frequency;
     float qfactor;
     float calibration_peak_multiplier;
+    float calibration_time_seconds;
 } iir_filter_params;
 
 void* init_iir_filter(iir_filter_params* params);
