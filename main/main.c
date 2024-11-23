@@ -25,11 +25,12 @@ const static char *TAG = "MAIN";
 
 void hid_task(void *pvParameters)
 {
-    char out;
+    static keyboard_system_command_t last_command;
+    encoder_output_t out;
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while (1)
     {
-        update_state();
+        update_state(last_command);
 
         // Polling period of 10ms to work with the fixed window sizes used by autocalibration.
         // Any future filtering attempts should use polling frequency when setting thresholds.
@@ -42,19 +43,23 @@ void hid_task(void *pvParameters)
         // }
         char pins = pressure_sensor_read();
         out = decode_and_feedback(pins, device_state);
+        do_feedback(out.encoder_flags);
+        last_command = decode_command(out);
 
         switch (device_state)
+        // Not KEYBOARD_STATE_PAUSED.
+        // Move the logic into BT itself, maybe?
         {
         case KEYBOARD_STATE_BT_CONNECTED | KEYBOARD_STATE_SENSOR_NORMAL:
-            if (out)
+            if (out.hid)
             {
-                bt_send(out);
+                bt_send(out.hid);
             }
             break;
         case KEYBOARD_STATE_BT_PASSKEY_ENTRY | KEYBOARD_STATE_SENSOR_NORMAL:
-            if (out)
+            if (out.hid)
             {
-                bt_passkey_process(out);
+                bt_passkey_process(out.hid);
             }
         default:
             break;
@@ -69,8 +74,8 @@ void app_main(void)
 
     iir_filter_params filter_params = {
         .sample_rate = 100,
-        .target_frequency = 15,
-        .qfactor = 0.5,
+        .target_frequency = 5,
+        .qfactor = 0.05,
         .calibration_peak_multiplier = 2.5,
         .calibration_time_seconds = 2
     };

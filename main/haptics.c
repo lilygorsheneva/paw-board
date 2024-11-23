@@ -50,42 +50,65 @@ static void single_pwm_init(void)
   ESP_LOGI(TAG, "Init single-mode feedback");
 }
 
-void scale_vibration_to_pincount(bool force_off, bool force_full)
+void pwm_vibrate(float fraction)
 {
-  uint32_t duty = (1 << 13) - 1;
-  if (force_off)
-  {
-    #ifdef FEEDBACK_COMMON_POSITIVE
-    duty = (1 << 13) - 1;
-    #else 
-    duty = 0;
-    #endif
-  }
-  else if (force_full)
-  {
-    #ifdef FEEDBACK_COMMON_POSITIVE
-    duty = 0;
-    #else 
-    duty = (1 << 13) - 1;
-    #endif
-  }
-  else
-  {
-    int c = pins_pressed_count();
-    const uint32_t duty_increment = (1 << 13) / 12 - 1;
-    #ifdef FEEDBACK_COMMON_POSITIVE
-    duty = (6 - c) * duty_increment;
-    #else
-    duty = (6 + c) * duty_increment;
-    #endif
-  }
+  fraction = fraction < 0 ? 0 : fraction;
+  fraction = fraction > 1 ? 1 : fraction;
+
+#ifdef FEEDBACK_COMMON_POSITIVE
+  fraction = 1 - fraction;
+#endif
+
+  uint32_t duty = ((1 << 13) - 1) * fraction;
 
   ESP_ERROR_CHECK(ledc_set_duty(LEDC_MODE, LEDC_CHANNEL, duty));
   ESP_ERROR_CHECK(ledc_update_duty(LEDC_MODE, LEDC_CHANNEL));
 }
 
-// Multi-motor per-finger feedback. Not currently PWM.
+void scale_vibration_to_pincount(bool force_off, bool force_full)
+{
+  float duty_fraction;
+  if (force_off)
+  {
+    duty_fraction = 0;
+  }
+  else if (force_full)
+  {
+    duty_fraction = 1;
+  }
+  else
+  {
+    duty_fraction = (6 + pins_pressed_count()) / 12;
+  }
+  pwm_vibrate(duty_fraction);
+}
 
+void flag_vibration(encoder_flags_t flags)
+{
+  float duty_fraction;
+  switch (flags)
+  {
+  case ENCODER_FLAG_ACCEPTED:
+    duty_fraction = 1;
+    break;
+  case ENCODER_FLAG_GRIP:
+    duty_fraction = 1;
+    break;
+  case ENCODER_FLAG_ENVELOPE:
+    duty_fraction = 0.5;
+    break;
+  default:
+    duty_fraction = 0;
+    break;
+  }
+  if (test_state(KEYBOARD_STATE_PAUSED))
+  {
+    duty_fraction = 0;
+  }
+  pwm_vibrate(duty_fraction);
+}
+
+// Multi-motor per-finger feedback. Not currently PWM.
 
 #define GPIO_OUTPUT_PIN_SEL ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_0)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_1)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_2)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_3)) | ((1ULL << MULTI_MOTOR_GPIO_OUTPUT_4))
 
@@ -111,7 +134,7 @@ void multi_motor_feedback(bool force_off, bool force_full)
 #ifdef FEEDBACK_COMMON_POSITIVE
 #define FEEDBACK_SIGN_OPERATOR !
 #else
-#define FEEDBACK_SIGN_OPERATOR 
+#define FEEDBACK_SIGN_OPERATOR
 #endif
 
   if (force_off)
@@ -137,18 +160,39 @@ void multi_motor_feedback(bool force_off, bool force_full)
   }
 }
 
-void do_feedback(bool force_off, bool force_full)
+void do_feedback(encoder_flags_t flags)
 {
+  bool force_off;
+  bool force_full;
+
+  switch (flags)
+  {
+  case ENCODER_FLAG_ACCEPTED:
+    force_full = true;
+    break;
+  case ENCODER_FLAG_REJECTED:
+    force_off = true;
+    break;
+  default:
+    break;
+  }
+
+  if (test_state(KEYBOARD_STATE_PAUSED))
+  {
+    force_off = true;
+    force_full = false;
+  }
+
   switch (HAPTICS_MODE)
   {
   case HAPTICS_MODE_FIVE:
     multi_motor_feedback(force_off, force_full);
     break;
-  case HAPTICS_MODE_SINGLE:
+  case HAPTICS_MODE_SCALING:
     scale_vibration_to_pincount(force_off, force_full);
     break;
   default:
-    scale_vibration_to_pincount(force_off, force_full);
+    flag_vibration(flags);
     break;
   }
 }
@@ -160,7 +204,7 @@ void initialize_feedback(void)
   case HAPTICS_MODE_FIVE:
     multi_gpio_init();
     break;
-  case HAPTICS_MODE_SINGLE:
+  case HAPTICS_MODE_SCALING:
     single_pwm_init();
     break;
   default:
