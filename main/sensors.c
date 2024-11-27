@@ -14,9 +14,7 @@
 #include "state.h"
 #include "filter.h"
 
-
 #define FORCE_ANALOG_LOG false
-
 
 #define JUMPERS_BIT_MASK ((1ULL << GPIO_CALIBRATION_PIN) | (1ULL << GPIO_LOGGING_PIN))
 
@@ -24,13 +22,11 @@ const static char *TAG = "SENSOR";
 
 static adc_channel_t channels[] = SENSOR_ADC_CHANNELS;
 
-
 static int adc_raw[5];
 bool pins_pressed[SENSOR_COUNT];
 
-
 #ifdef JUMPERS_COMMON_POSITIVE
-#define JUMPERS_SIGN_OPERATOR 
+#define JUMPERS_SIGN_OPERATOR
 #else
 #define JUMPERS_SIGN_OPERATOR !
 #endif
@@ -74,7 +70,10 @@ void pressure_sensor_init(void)
 
 int pins_pressed_count(void)
 {
-  if (test_state(KEYBOARD_STATE_SENSOR_CALIBRATION)){return 0;}
+  if (test_state(KEYBOARD_STATE_SENSOR_CALIBRATION))
+  {
+    return 0;
+  }
   char buf = 0;
 
   for (int i = 0; i < SENSOR_COUNT; ++i)
@@ -97,7 +96,7 @@ char pressure_bits_to_num(void)
 jumper_states_t read_jumpers(void)
 {
 
-  bool calibration = JUMPERS_SIGN_OPERATOR gpio_get_level(GPIO_CALIBRATION_PIN); 
+  bool calibration = JUMPERS_SIGN_OPERATOR gpio_get_level(GPIO_CALIBRATION_PIN);
   bool logging = JUMPERS_SIGN_OPERATOR gpio_get_level(GPIO_LOGGING_PIN);
   jumper_states_t ret = {
       .calibration = calibration,
@@ -130,6 +129,12 @@ void pressure_sensor_calibration_manage()
       default_filter_calibrate_end(adc_raw);
     }
     last_calibration_state = new_calibration_state;
+
+    for (int i = 0; i < SENSOR_COUNT; ++i)
+    {
+      // maybe pins_pressed should be owned by the filter to avoid this ugly thing
+      pins_pressed[i] = false;
+    }
   }
 }
 

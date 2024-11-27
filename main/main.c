@@ -74,8 +74,8 @@ void app_main(void)
 
     iir_filter_params filter_params = {
         .sample_rate = 100,
-        .target_frequency = 5,
-        .qfactor = 0.05,
+        .target_frequency = 2,
+        .qfactor = 0.25,
         .calibration_peak_multiplier = 2.5,
         .calibration_time_seconds = 2
     };
