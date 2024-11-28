@@ -129,12 +129,6 @@ void pressure_sensor_calibration_manage()
       default_filter_calibrate_end(adc_raw);
     }
     last_calibration_state = new_calibration_state;
-
-    for (int i = 0; i < SENSOR_COUNT; ++i)
-    {
-      // maybe pins_pressed should be owned by the filter to avoid this ugly thing
-      pins_pressed[i] = false;
-    }
   }
 }
 

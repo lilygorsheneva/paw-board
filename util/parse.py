@@ -8,7 +8,7 @@ from typing import List
 from dataclasses import dataclass, field
 from matplotlib import pyplot as plt
 from scipy import signal
-
+import numpy
 
 filters = {}
 
@@ -135,12 +135,19 @@ def autocalibrateWithStandardDev(readings, inner_window=5, outer_window=500):
 def peakiirFilter(readings, frequency, qfactor):
     # ESP-DSP normalizes to sample frequency, scipy normalizes to nyquist
     coef = signal.iirpeak(frequency*2,qfactor)
-    return [i for i in signal.lfilter(coef[0], coef[1])]
+    return [i for i in signal.lfilter(coef[0], coef[1], readings)]
+
+def derivativeLowPass(readings, frequency, qfactor):
+    # ESP-DSP normalizes to sample frequency, scipy normalizes to nyquist
+    coef = signal.butter(2, frequency*2, "lowpass")
+    return numpy.gradient([i for i in signal.lfilter(coef[0], coef[1], readings)])
+
 
 filters['movingwindow'] = movingAverage
 filters['movingwindowlong'] = lambda readings: movingAverage(readings, 500)
 
 filters['iir'] = lambda readings: peakiirFilter(readings, 5/100, 0.05)
+filters['iirdlp'] = lambda readings: derivativeLowPass(readings, 5/100, 0.05)
 
 movingwindowautocalibrate = lambda readings: [max(value - calibration, 0) for value,calibration in zip(movingAverage(readings, size=5),movingAverage(readings, size=1000, init_value=5000)) ]
 filters['movingwindowautocalibrate']  = movingwindowautocalibrate
