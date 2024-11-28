@@ -26,6 +26,8 @@ const static char *TAG = "MAIN";
 void hid_task(void *pvParameters)
 {
     static keyboard_system_command_t last_command;
+    static envelope_encoder_state encoder_state;
+    static command_decoder_state command_state;
     encoder_output_t out;
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while (1)
@@ -42,9 +44,9 @@ void hid_task(void *pvParameters)
         //     vTaskDelay(POLLING_PERIOD_MS / portTICK_PERIOD_MS);
         // }
         char pins = pressure_sensor_read();
-        out = decode_and_feedback(pins, device_state);
+        out = envelope_encode(&encoder_state, pins, device_state);
         do_feedback(out.encoder_flags);
-        last_command = decode_command(out);
+        last_command = decode_command(&command_state, out);
 
         switch (device_state)
         // Not KEYBOARD_STATE_PAUSED.
