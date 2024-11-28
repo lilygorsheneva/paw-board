@@ -81,19 +81,11 @@ encoder_output_t envelope_encode(envelope_encoder_state *envelope_state, char pi
     if (_current_time >= envelope_state->_accept_input_at && !envelope_state->_rejected)
     {
       ESP_LOGI(TAG, "| %c |", envelope_state->_accumulated + 'a' - 1);
-      out.hid = convert_to_hid_code(envelope_state->_accumulated, keyboard_mode_to_layout(mode));
+      out.accumulated_bitstring = envelope_state->_accumulated;
       ESP_LOGI(TAG, "Exit envelope %c (accepted)", envelope_state->_accumulated + 'a' - 1);
       envelope_state->_accumulated = 0;
       envelope_state->_in_envelope = false;
       envelope_state->_rejected = false;
-      if (out.hid)
-      {
-        out.encoder_flags = ENCODER_FLAG_ACCEPTED;
-      }
-      else
-      {
-        out.encoder_flags = ENCODER_FLAG_REJECTED;
-      }
     }
   }
   return out;
@@ -118,17 +110,28 @@ keyboard_layout_t keyboard_mode_to_layout(keyboard_state_t mode)
   }
 }
 
-keyboard_cmd_t convert_to_hid_code(char bitstring, keyboard_layout_t mode)
+void convert_to_hid_code(encoder_output_t *out, keyboard_state_t mode)
 {
-  switch (mode)
+  char bitstring = out->accumulated_bitstring;
+  char hid;
+  keyboard_layout_t layout = keyboard_mode_to_layout(mode);
+  switch (layout)
   {
   case KEYBOARD_LAYOUT_ALPHA:
-    return convert_to_hid_code_alpha(bitstring);
+    hid = convert_to_hid_code_alpha(bitstring);
+    break;
   case KEYBOARD_LAYOUT_NUMERIC:
-    return convert_to_hid_code_numeric(bitstring);
+    hid = convert_to_hid_code_numeric(bitstring);
+    break;
   default:
     ESP_LOGE(TAG, "UNKNOWN MODE %d, defaulting to alpha.", mode);
-    return convert_to_hid_code_alpha(bitstring);
+    hid = convert_to_hid_code_alpha(bitstring);
+    break;
+  }
+  out->hid = hid;
+  if (!hid)
+  {
+    out->encoder_flags = ENCODER_FLAG_REJECTED;
   }
 }
 
@@ -237,7 +240,7 @@ keyboard_cmd_t convert_to_hid_code_alpha(char bitstring)
   };
 }
 
-keyboard_system_command_t decode_command(command_decoder_state* command_state, encoder_output_t out)
+keyboard_system_command_t decode_command(command_decoder_state *command_state, encoder_output_t out)
 {
   switch (out.encoder_flags)
   {

@@ -45,6 +45,7 @@ void hid_task(void *pvParameters)
         // }
         char pins = pressure_sensor_read();
         out = envelope_encode(&encoder_state, pins, device_state);
+        convert_to_hid_code(&out, device_state);
         do_feedback(out.encoder_flags);
         last_command = decode_command(&command_state, out);
 
