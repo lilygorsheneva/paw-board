@@ -54,11 +54,13 @@ encoder_output_t envelope_encode(envelope_encoder_state *envelope_state, char pi
     ESP_LOGV(TAG, "| %c + %c = %c|", envelope_state->_accumulated + 'a' - 1, pin_bitstring + 'a' - 1, (envelope_state->_accumulated | pin_bitstring) + 'a' - 1);
     envelope_state->_accumulated = envelope_state->_accumulated | pin_bitstring;
     out.encoder_flags = ENCODER_FLAG_ENVELOPE;
-    if (_current_time >= envelope_state->_reject_envelope_at && !envelope_state->_rejected)
+    if (_current_time >= envelope_state->_reject_envelope_at)
     {
-      ESP_LOGI(TAG, "Envelope over time, rejecting.");
-      envelope_state->_rejected = true;
       out.encoder_flags = ENCODER_FLAG_REJECTED;
+            envelope_state->_rejected = true;
+      if (!envelope_state->_rejected) {
+        ESP_LOGI(TAG, "Envelope over time, rejecting.");
+      }
     }
   }
   if (!pin_bitstring && envelope_state->_in_envelope)
