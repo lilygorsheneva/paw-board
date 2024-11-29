@@ -135,7 +135,7 @@ def autocalibrateWithStandardDev(readings, inner_window=5, outer_window=500):
 def peakiirFilter(readings, frequency, qfactor):
     # ESP-DSP normalizes to sample frequency, scipy normalizes to nyquist
     coef = signal.iirpeak(frequency*2,qfactor)
-    return [i for i in signal.lfilter(readings, coef[0], coef[1])]
+    return [i for i in signal.lfilter(coef[0], coef[1], readings)]
 
 filters['movingwindow'] = movingAverage
 filters['movingwindowlong'] = lambda readings: movingAverage(readings, 500)
