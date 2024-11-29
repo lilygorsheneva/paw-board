@@ -78,7 +78,9 @@ void app_main(void)
         .target_frequency = {10, 10, 10, 10, 10},
         .qfactor = {0.5, 0.5, 0.5, 0.5, 0.5},
         .calibration_peak_multiplier = 2.5,
-        .calibration_time_seconds = 2};
+        .calibration_time_seconds = 2,
+        .debounce_count=4,
+        .min_threshold=1};
     default_filter_init(init_iir_filter(&filter_params));
 
     initialize_feedback();

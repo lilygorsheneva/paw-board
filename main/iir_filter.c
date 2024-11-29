@@ -23,7 +23,7 @@ typedef struct
     float delay_line[SENSOR_COUNT][2];
     float thresholds[SENSOR_COUNT];
 
-    float last_val[SENSOR_COUNT];
+    int consecutive_movement[SENSOR_COUNT];
 
     int calibration_countdown;
 
@@ -38,10 +38,6 @@ void iir_filter_process_filter(iir_filter_data *data, int *adc_raw, float *out)
     {
         float in = (float)adc_raw[i];
         dsps_biquad_f32_ansi(&in, &(out[i]), 1, data->coeffs[i], data->delay_line[i]);
-
-        float tmp = out[i];
-        out[i] = tmp - data->last_val[i];
-        data->last_val[i] = tmp;
     }
     if (test_state(KEYBOARD_STATE_SENSOR_LOGGING))
     {
@@ -57,12 +53,25 @@ void iir_filter_process_normal(iir_filter_data *data, float *filtered_data, bool
         {
             // If pressed, wait for a "release".
             // I fear this may lead to the sensor getting "sticky", but it's needed for held heys.
-            pins_pressed[i] = !(filtered_data[i] ADC_LT_OPERATOR(-data->thresholds[i]));
+            bool releasing = filtered_data[i] ADC_LT_OPERATOR(-data->thresholds[i]);
+            data->consecutive_movement[i] = releasing ? data->consecutive_movement[i] + 1 : 0;
+
+            if (data->consecutive_movement[i] > data->params.debounce_count)
+            {
+                pins_pressed[i] = false;
+                data->consecutive_movement[i] = 0;
+            }
         }
         else
         {
             // If not pressed, wait until it goes over the threshold.
-            pins_pressed[i] = filtered_data[i] ADC_GE_OPERATOR data->thresholds[i];
+            bool pressing = filtered_data[i] ADC_GE_OPERATOR data->thresholds[i];
+            data->consecutive_movement[i] = pressing ? data->consecutive_movement[i] + 1 : 0;
+            if (data->consecutive_movement[i] > data->params.debounce_count)
+            {
+                pins_pressed[i] = true;
+                data->consecutive_movement[i] = 0;
+            }
         }
     }
 }
@@ -85,10 +94,11 @@ void iir_filter_process_calibration(iir_filter_data *data, float *filtered_data)
         {
 // Not ideal but I don't know how to auto-calculate a good one at the moment.
 #ifdef ADC_COMMON_POSITIVE
-            data->thresholds[i] = data->thresholds[i] * data->params.calibration_peak_multiplier;
+            data->thresholds[i] = data->thresholds[i] * data->params.calibration_peak_multiplier + data->params.min_threshold;
 #else
-            data->thresholds[i] = -data->thresholds[i] * data->params.calibration_peak_multiplier;
+            data->thresholds[i] = -data->thresholds[i] * data->params.calibration_peak_multiplier + data->params.min_threshold;
 #endif
+            data->consecutive_movement[i] = 0;
         }
         ESP_LOGI(TAG, "Exit IIR calibration | %4f | %4f | %4f | %4f | %4f |", data->thresholds[0], data->thresholds[1], data->thresholds[2], data->thresholds[3], data->thresholds[4]);
     }
@@ -152,7 +162,7 @@ void *init_iir_filter(iir_filter_params *params)
     {
         float freq = params->target_frequency[i] / params->sample_rate;
         float qFactor = params->qfactor[i];
-        err = dsps_biquad_gen_lpf_f32(data->coeffs[i], freq, qFactor);
+        err = dsps_biquad_gen_bpf_f32(data->coeffs[i], freq, qFactor);
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "Operation error = %i", err);

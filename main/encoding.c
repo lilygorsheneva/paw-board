@@ -65,6 +65,8 @@ encoder_output_t envelope_encode(envelope_encoder_state *envelope_state, char pi
   }
   if (!pin_bitstring && envelope_state->_in_envelope)
   {
+    out.encoder_flags = ENCODER_FLAG_ENVELOPE;
+
     if (_current_time >= envelope_state->_reject_envelope_at)
     {
       ESP_LOGI(TAG, "Exit envelope %c (rejected)", envelope_state->_accumulated + 'a' - 1);
