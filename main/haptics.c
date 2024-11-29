@@ -105,6 +105,10 @@ void flag_vibration(encoder_flags_t flags)
   {
     duty_fraction = 0;
   }
+    if (test_state(KEYBOARD_STATE_SENSOR_LOGGING))
+  {
+    ESP_LOGI(TAG, "HAPTICSLOG | %d, %lf |", flags, duty_fraction);
+  }
   pwm_vibrate(duty_fraction);
 }
 

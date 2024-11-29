@@ -129,7 +129,7 @@ void convert_to_hid_code(encoder_output_t *out, keyboard_state_t mode)
     break;
   }
   out->hid = hid;
-  if (!hid)
+  if (bitstring && !hid)
   {
     out->encoder_flags = ENCODER_FLAG_REJECTED;
   }
@@ -137,6 +137,7 @@ void convert_to_hid_code(encoder_output_t *out, keyboard_state_t mode)
 
 keyboard_cmd_t convert_to_hid_code_numeric(char bitstring)
 {
+  // NUMERIC ONLY. If you need a number+symbol layout make a new one.
   switch (bitstring)
   {
   case 1:
