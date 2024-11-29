@@ -85,6 +85,7 @@ encoder_output_t envelope_encode(envelope_encoder_state *envelope_state, char pi
       ESP_LOGI(TAG, "| %c |", envelope_state->_accumulated + 'a' - 1);
       out.accumulated_bitstring = envelope_state->_accumulated;
       ESP_LOGI(TAG, "Exit envelope %c (accepted)", envelope_state->_accumulated + 'a' - 1);
+      out.encoder_flags = ENCODER_FLAG_ACCEPTED;
       envelope_state->_accumulated = 0;
       envelope_state->_in_envelope = false;
       envelope_state->_rejected = false;
