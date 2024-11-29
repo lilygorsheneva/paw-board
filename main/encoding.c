@@ -99,40 +99,27 @@ encoder_output_t envelope_encode(envelope_encoder_state *envelope_state, char pi
 keyboard_cmd_t convert_to_hid_code_alpha(char bitstring);
 keyboard_cmd_t convert_to_hid_code_numeric(char bitstring);
 
-keyboard_layout_t keyboard_mode_to_layout(keyboard_state_t mode)
-{
-  switch (mode & (MASK_KEYBOARD_STATE_BT))
-  {
-  case KEYBOARD_STATE_BT_CONNECTED:
-    return KEYBOARD_LAYOUT_ALPHA;
-  case KEYBOARD_STATE_BT_UNCONNECTED:
-    return KEYBOARD_LAYOUT_ALPHA;
-  case KEYBOARD_STATE_BT_PASSKEY_ENTRY:
-    return KEYBOARD_LAYOUT_NUMERIC;
-  default:
-    ESP_LOGE(TAG, "UNKNOWN STATE %d, defaulting to alpha.", mode);
-    return KEYBOARD_LAYOUT_ALPHA;
-  }
-}
 
 void convert_to_hid_code(encoder_output_t *out, keyboard_state_t mode)
 {
   char bitstring = out->accumulated_bitstring;
   char hid;
-  keyboard_layout_t layout = keyboard_mode_to_layout(mode);
-  switch (layout)
-  {
-  case KEYBOARD_LAYOUT_ALPHA:
-    hid = convert_to_hid_code_alpha(bitstring);
-    break;
-  case KEYBOARD_LAYOUT_NUMERIC:
+
+  bool layoutswitch = pins_pressed[5];
+
+  key_mask_t mask = 0;
+  mask |= pins_pressed[6] ? LEFT_SHIFT_KEY_MASK : 0;
+  mask |= pins_pressed[7] ? LEFT_CONTROL_KEY_MASK : 0;
+  mask |= pins_pressed[8] ? LEFT_ALT_KEY_MASK : 0;
+  mask |= pins_pressed[9] ? LEFT_GUI_KEY_MASK : 0;
+
+  if (test_state(KEYBOARD_STATE_BT_PASSKEY_ENTRY)){
     hid = convert_to_hid_code_numeric(bitstring);
-    break;
-  default:
-    ESP_LOGE(TAG, "UNKNOWN MODE %d, defaulting to alpha.", mode);
-    hid = convert_to_hid_code_alpha(bitstring);
-    break;
+  } else {
+    hid = layoutswitch ? convert_to_hid_code_numeric(bitstring) : convert_to_hid_code_alpha(bitstring);
+    out->mask = mask;
   }
+
   out->hid = hid;
   if (bitstring && !hid)
   {

@@ -2,6 +2,8 @@
 #define CONSTANTS_H__
 
 #include "hal/adc_types.h"
+#include "hal/touch_sensor_types.h"
+
 
 #define POLLING_PERIOD_MS = 50;
 #define WAIT_TO_CONFIRM_INPUT_MS = 300;
@@ -11,12 +13,18 @@
 #define ENVELOPE_GRACE_PERIOD_USEC  100000;
 
 
-#define SENSOR_COUNT 5
+#define ADC_SENSOR_COUNT 5
+#define CAPACITIVE_SENSOR_COUNT 5
+
+#define SENSOR_COUNT ADC_SENSOR_COUNT + CAPACITIVE_SENSOR_COUNT 
 
 
 // ADC on pins labeled on Arduino as A0,A1,A2,A3,D2
 #define SENSOR_ADC_CHANNELS {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3, ADC_CHANNEL_4}
 #define ADC_ATTENUATION ADC_ATTEN_DB_2_5
+
+// D3,D4,D5,D6,D7
+#define SENSOR_CAPACITIVE_CHANNELS {TOUCH_PAD_NUM6, TOUCH_PAD_NUM7, TOUCH_PAD_NUM8, TOUCH_PAD_NUM9, TOUCH_PAD_NUM10}
 
 // Selected to not conflict with feedback selections.
 // Calibration pin may be better on an RTC gpio to be used as a wake button in the distant future.

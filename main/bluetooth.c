@@ -208,13 +208,13 @@ void bt_init(void)
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
 }
 
-void bt_send(char key)
+void bt_send(key_mask_t mask, keyboard_cmd_t key)
 {
-    ESP_LOGI(TAG, "Send key");
+    ESP_LOGI(TAG, "Send key | %d | %d", mask, key);
     uint8_t key_value[] = {0};
     key_value[0] = key;
-    esp_hidd_send_keyboard_value(hid_conn_id, 0, key_value, 1);
-    esp_hidd_send_keyboard_value(hid_conn_id, 0, NULL, 0);
+    
+    esp_hidd_send_keyboard_value(hid_conn_id, mask, key_value, (key ? 1 :0));
 }
 
 char passkey_buffer[6] = {0};

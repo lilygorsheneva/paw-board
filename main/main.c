@@ -21,11 +21,16 @@
 
 const static char *TAG = "MAIN";
 
+envelope_encoder_state encoder_state;
+command_decoder_state command_state;
+
+keyboard_system_command_t last_command;
+keyboard_cmd_t last_tx_key;
+key_mask_t last_tx_mask;
+
 void hid_task(void *pvParameters)
 {
-    static keyboard_system_command_t last_command;
-    static envelope_encoder_state encoder_state;
-    static command_decoder_state command_state;
+
     encoder_output_t out;
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     while (1)
@@ -52,9 +57,12 @@ void hid_task(void *pvParameters)
         // Move the logic into BT itself, maybe?
         {
         case KEYBOARD_STATE_BT_CONNECTED | KEYBOARD_STATE_SENSOR_NORMAL:
-            if (out.hid)
+            // This check definitely needs to be in a BT wrapper.
+            if (!((out.mask == last_tx_mask) && (out.hid == last_tx_key)))
             {
-                bt_send(out.hid);
+                last_tx_key = out.hid;
+                last_tx_mask= out.mask;
+                bt_send(out.mask, out.hid);
             }
             break;
         case KEYBOARD_STATE_BT_PASSKEY_ENTRY | KEYBOARD_STATE_SENSOR_NORMAL:
@@ -71,16 +79,16 @@ void hid_task(void *pvParameters)
 void app_main(void)
 {
     bt_init();
-    pressure_sensor_init();
+    sensor_init();
 
     iir_filter_params filter_params = {
         .sample_rate = 100,
-        .target_frequency = {10, 10, 10, 10, 10},
-        .qfactor = {0.5, 0.5, 0.5, 0.5, 0.5},
+        .target_frequency = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10},
+        .qfactor = {0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5},
         .calibration_peak_multiplier = 2.5,
         .calibration_time_seconds = 2,
-        .debounce_count=4,
-        .min_threshold=1};
+        .debounce_count = 4,
+        .min_threshold = 1};
     default_filter_init(init_iir_filter(&filter_params));
 
     initialize_feedback();

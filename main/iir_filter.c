@@ -30,7 +30,7 @@ typedef struct
     iir_filter_params params;
 } iir_filter_data;
 
-void iir_filter_process_filter(iir_filter_data *data, int *adc_raw, float *out)
+void iir_filter_process_filter(iir_filter_data *data, uint32_t *adc_raw, float *out)
 {
 
     // Actual filtering.
@@ -41,7 +41,7 @@ void iir_filter_process_filter(iir_filter_data *data, int *adc_raw, float *out)
     }
     if (test_state(KEYBOARD_STATE_SENSOR_LOGGING))
     {
-        ESP_LOGI(TAG, "FILTER_LOG | %4f | %4f | %4f | %4f | %4f |", out[0], out[1], out[2], out[3], out[4]);
+        ESP_LOGI(TAG, "FILTER_LOG | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f |", out[0], out[1], out[2], out[3], out[4],  out[5], out[6], out[7], out[8], out[9]);
     }
 }
 
@@ -103,7 +103,7 @@ void iir_filter_process_calibration(iir_filter_data *data, float *filtered_data)
         ESP_LOGI(TAG, "Exit IIR calibration | %4f | %4f | %4f | %4f | %4f |", data->thresholds[0], data->thresholds[1], data->thresholds[2], data->thresholds[3], data->thresholds[4]);
     }
 }
-void iir_sensor_process(filter_handle_t filter_handle, int *adc_raw, bool *pins_pressed)
+void iir_sensor_process(filter_handle_t filter_handle, uint32_t *adc_raw, bool *pins_pressed)
 {
     iir_filter_data *data = (iir_filter_data *)filter_handle->filter_data;
     float filtered_data[SENSOR_COUNT];
@@ -126,7 +126,7 @@ void iir_sensor_process(filter_handle_t filter_handle, int *adc_raw, bool *pins_
     return;
 }
 
-void iir_filter_calibration_start(filter_handle_t filter_handle, int *adc_raw)
+void iir_filter_calibration_start(filter_handle_t filter_handle, uint32_t *adc_raw)
 {
     ESP_LOGI(TAG, "Enter IIR calibration");
 
@@ -141,7 +141,7 @@ void iir_filter_calibration_start(filter_handle_t filter_handle, int *adc_raw)
     }
 }
 
-void iir_filter_calibration_end(filter_handle_t filter_handle, int *adc_raw) {}
+void iir_filter_calibration_end(filter_handle_t filter_handle, uint32_t *adc_raw) {}
 
 void *init_iir_filter(iir_filter_params *params)
 {

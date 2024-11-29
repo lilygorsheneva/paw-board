@@ -28,13 +28,13 @@ typedef struct
 
 // Naive approach to handling a read. Hardcoded threshold with
 // a small debouce window later.
-void processInputPins(struct filter* filter_handle, int *adc_raw, bool *pins_pressed)
+void processInputPins(struct filter* filter_handle, uint32_t *adc_raw, bool *pins_pressed)
 {
     old_filter_data *data = (old_filter_data *)filter_handle->filter_data;
 
     for (int i = 0; i < SENSOR_COUNT; ++i)
     {
-        int value = adc_raw[i];
+        uint32_t value = adc_raw[i];
         if (!pins_pressed[i])
         {
             if (value ADC_GE_OPERATOR data->thresholds[i])
@@ -52,11 +52,11 @@ void processInputPins(struct filter* filter_handle, int *adc_raw, bool *pins_pre
     }
 }
 
-void calibration_start(filter_handle_t filter_handle, int *adc_raw)
+void calibration_start(filter_handle_t filter_handle, uint32_t *adc_raw)
 {
     old_filter_data *data = (old_filter_data *)filter_handle->filter_data;
 
-    ESP_LOGI(TAG, "Enter calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
+    ESP_LOGI(TAG, "Enter calibration | %4ld | %4ld | %4ld | %4ld | %4ld |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
 
     for (int i = 0; i < SENSOR_COUNT; ++i)
     {
@@ -64,12 +64,12 @@ void calibration_start(filter_handle_t filter_handle, int *adc_raw)
     }
 };
 
-void calibration_end(filter_handle_t filter_handle, int *adc_raw)
+void calibration_end(filter_handle_t filter_handle, uint32_t *adc_raw)
 {
     old_filter_data *data = (old_filter_data *)filter_handle->filter_data;
 
 
-    ESP_LOGI(TAG, "Exit calibration | %4d | %4d | %4d | %4d | %4d |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
+    ESP_LOGI(TAG, "Exit calibration | %4ld | %4ld | %4ld | %4ld | %4ld |", adc_raw[0], adc_raw[1], adc_raw[2], adc_raw[3], adc_raw[4]);
 
     for (int i = 0; i < SENSOR_COUNT; ++i)
     {
