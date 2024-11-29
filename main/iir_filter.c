@@ -19,7 +19,7 @@ const static char *TAG = "FILTER";
 
 typedef struct
 {
-    float coeffs[5];
+    float coeffs[SENSOR_COUNT][5];
     float delay_line[SENSOR_COUNT][2];
     float thresholds[SENSOR_COUNT];
 
@@ -37,7 +37,7 @@ void iir_filter_process_filter(iir_filter_data *data, int *adc_raw, float *out)
     for (int i = 0; i < SENSOR_COUNT; ++i)
     {
         float in = (float)adc_raw[i];
-        dsps_biquad_f32_ansi(&in, &(out[i]), 1, data->coeffs, data->delay_line[i]);
+        dsps_biquad_f32_ansi(&in, &(out[i]), 1, data->coeffs[i], data->delay_line[i]);
 
         float tmp = out[i];
         out[i] = tmp - data->last_val[i];
@@ -47,7 +47,6 @@ void iir_filter_process_filter(iir_filter_data *data, int *adc_raw, float *out)
     {
         ESP_LOGI(TAG, "FILTER_LOG | %4f | %4f | %4f | %4f | %4f |", out[0], out[1], out[2], out[3], out[4]);
     }
-    // End actual filtering.
 }
 
 void iir_filter_process_normal(iir_filter_data *data, float *filtered_data, bool *pins_pressed)
@@ -58,7 +57,7 @@ void iir_filter_process_normal(iir_filter_data *data, float *filtered_data, bool
         {
             // If pressed, wait for a "release".
             // I fear this may lead to the sensor getting "sticky", but it's needed for held heys.
-            pins_pressed[i] = !(filtered_data[i] ADC_LT_OPERATOR (-data->thresholds[i]));
+            pins_pressed[i] = !(filtered_data[i] ADC_LT_OPERATOR(-data->thresholds[i]));
         }
         else
         {
@@ -146,17 +145,19 @@ void *init_iir_filter(iir_filter_params *params)
     filter_handle->filter_data = (void *)data;
     data->params = *params;
 
-    float freq = params->target_frequency / params->sample_rate;
-    float qFactor = params->qfactor;
-
     esp_err_t err = ESP_OK;
 
     // Calculate iir filter coefficients
-    err = dsps_biquad_gen_lpf_f32(data->coeffs, freq, qFactor);
-    if (err != ESP_OK)
+    for (int i = 0; i < SENSOR_COUNT; ++i)
     {
-        ESP_LOGE(TAG, "Operation error = %i", err);
-        return NULL;
+        float freq = params->target_frequency[i] / params->sample_rate;
+        float qFactor = params->qfactor[i];
+        err = dsps_biquad_gen_lpf_f32(data->coeffs[i], freq, qFactor);
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(TAG, "Operation error = %i", err);
+            return NULL;
+        }
     }
 
     data->calibration_countdown = (data->params.calibration_time_seconds + 2) * (data->params.sample_rate);

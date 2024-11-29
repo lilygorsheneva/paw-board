@@ -3,9 +3,12 @@
 
 #include "hal/adc_types.h"
 
-static const int POLLING_PERIOD_MS = 50;
-static const int WAIT_TO_CONFIRM_INPUT_MS = 300;
-static const int SEND_FEEDBACK_TIME_MS = 300;
+#define POLLING_PERIOD_MS = 50;
+#define WAIT_TO_CONFIRM_INPUT_MS = 300;
+#define SEND_FEEDBACK_TIME_MS = 300;
+
+#define MAX_ENVELOPE_LENGTH_USEC 2000000;
+#define ENVELOPE_GRACE_PERIOD_USEC  100000;
 
 
 #define SENSOR_COUNT 5
@@ -35,5 +38,6 @@ static const int SEND_FEEDBACK_TIME_MS = 300;
 #define ADC_COMMON_POSITIVE
 #define FEEDBACK_COMMON_POSITIVE
 #define JUMPERS_COMMON_POSITIVE
+
 
 #endif

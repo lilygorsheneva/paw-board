@@ -19,8 +19,6 @@
 
 const static char *TAG = "ENCODING";
 
-static uint64_t _current_time = 0;
-
 int64_t gettime()
 {
   struct timeval tv_now;
@@ -29,56 +27,46 @@ int64_t gettime()
   return time_us;
 }
 
-encoder_output_t decode_and_feedback(char pins, keyboard_state_t mode)
+encoder_output_t envelope_encode(envelope_encoder_state *envelope_state, char pin_bitstring, keyboard_state_t mode)
 {
-  static bool _in_envelope = false;
-  static char _accumulated = 0;
-  static bool _rejected = false;
-
-  static unsigned long _accept_input_at;
-  static unsigned long _reject_envelope_at;
-
-  const unsigned long MAX_ENVELOPE_LENGTH_USEC = 2000000;
-  const unsigned long ENVELOPE_GRACE_PERIOD_USEC = 100000;
-
-  _current_time = gettime();
+  uint64_t _current_time = gettime();
 
   encoder_output_t out = {};
 
-  if (!pins && !_in_envelope)
+  if (!pin_bitstring && !envelope_state->_in_envelope)
   {
-    ESP_LOGV(TAG, "No envelope | %c |", pins + 'a' - 1);
+    ESP_LOGV(TAG, "No envelope | %c |", pin_bitstring + 'a' - 1);
   }
-  if (pins && !_in_envelope)
+  if (pin_bitstring && !envelope_state->_in_envelope)
   {
-    _in_envelope = true;
+    envelope_state->_in_envelope = true;
     out.encoder_flags = ENCODER_FLAG_ENVELOPE;
-    _reject_envelope_at = _current_time + MAX_ENVELOPE_LENGTH_USEC;
-    _rejected = false;
-    _accept_input_at = _current_time + ENVELOPE_GRACE_PERIOD_USEC;
-    _accumulated = pins;
+    envelope_state->_reject_envelope_at = _current_time + MAX_ENVELOPE_LENGTH_USEC;
+    envelope_state->_rejected = false;
+    envelope_state->_accept_input_at = _current_time + ENVELOPE_GRACE_PERIOD_USEC;
+    envelope_state->_accumulated = pin_bitstring;
 
-    ESP_LOGI(TAG, "Enter envelope %c ", _accumulated + 'a' - 1);
+    ESP_LOGI(TAG, "Enter envelope %c ", envelope_state->_accumulated + 'a' - 1);
   }
-  if (pins && _in_envelope)
+  if (pin_bitstring && envelope_state->_in_envelope)
   {
-    _accept_input_at = _current_time + ENVELOPE_GRACE_PERIOD_USEC;
-    ESP_LOGV(TAG, "| %c + %c = %c|", _accumulated + 'a' - 1, pins + 'a' - 1, (_accumulated | pins) + 'a' - 1);
-    _accumulated = _accumulated | pins;
+    envelope_state->_accept_input_at = _current_time + ENVELOPE_GRACE_PERIOD_USEC;
+    ESP_LOGV(TAG, "| %c + %c = %c|", envelope_state->_accumulated + 'a' - 1, pin_bitstring + 'a' - 1, (envelope_state->_accumulated | pin_bitstring) + 'a' - 1);
+    envelope_state->_accumulated = envelope_state->_accumulated | pin_bitstring;
     out.encoder_flags = ENCODER_FLAG_ENVELOPE;
-    if (_current_time >= _reject_envelope_at && !_rejected)
+    if (_current_time >= envelope_state->_reject_envelope_at && !envelope_state->_rejected)
     {
       ESP_LOGI(TAG, "Envelope over time, rejecting.");
-      _rejected = true;
+      envelope_state->_rejected = true;
       out.encoder_flags = ENCODER_FLAG_REJECTED;
     }
   }
-  if (!pins && _in_envelope)
+  if (!pin_bitstring && envelope_state->_in_envelope)
   {
-    if (_current_time >= _reject_envelope_at)
+    if (_current_time >= envelope_state->_reject_envelope_at)
     {
-      ESP_LOGI(TAG, "Exit envelope %c (rejected)", _accumulated + 'a' - 1);
-      if (_accumulated == 31)
+      ESP_LOGI(TAG, "Exit envelope %c (rejected)", envelope_state->_accumulated + 'a' - 1);
+      if (envelope_state->_accumulated == 31)
       {
         out.encoder_flags = ENCODER_FLAG_GRIP;
       }
@@ -86,26 +74,18 @@ encoder_output_t decode_and_feedback(char pins, keyboard_state_t mode)
       {
         out.encoder_flags = ENCODER_FLAG_REJECTED;
       }
-      _accumulated = 0;
-      _in_envelope = false;
-      _rejected = true;
+      envelope_state->_accumulated = 0;
+      envelope_state->_in_envelope = false;
+      envelope_state->_rejected = true;
     }
-    if (_current_time >= _accept_input_at && !_rejected)
+    if (_current_time >= envelope_state->_accept_input_at && !envelope_state->_rejected)
     {
-      ESP_LOGI(TAG, "| %c |", _accumulated + 'a' - 1);
-      out.hid = convert_to_hid_code(_accumulated, keyboard_mode_to_layout(mode));
-      ESP_LOGI(TAG, "Exit envelope %c (accepted)", _accumulated + 'a' - 1);
-      _accumulated = 0;
-      _in_envelope = false;
-      _rejected = false;
-      if (out.hid)
-      {
-        out.encoder_flags = ENCODER_FLAG_ACCEPTED;
-      }
-      else
-      {
-        out.encoder_flags = ENCODER_FLAG_REJECTED;
-      }
+      ESP_LOGI(TAG, "| %c |", envelope_state->_accumulated + 'a' - 1);
+      out.accumulated_bitstring = envelope_state->_accumulated;
+      ESP_LOGI(TAG, "Exit envelope %c (accepted)", envelope_state->_accumulated + 'a' - 1);
+      envelope_state->_accumulated = 0;
+      envelope_state->_in_envelope = false;
+      envelope_state->_rejected = false;
     }
   }
   return out;
@@ -130,17 +110,28 @@ keyboard_layout_t keyboard_mode_to_layout(keyboard_state_t mode)
   }
 }
 
-keyboard_cmd_t convert_to_hid_code(char bitstring, keyboard_layout_t mode)
+void convert_to_hid_code(encoder_output_t *out, keyboard_state_t mode)
 {
-  switch (mode)
+  char bitstring = out->accumulated_bitstring;
+  char hid;
+  keyboard_layout_t layout = keyboard_mode_to_layout(mode);
+  switch (layout)
   {
   case KEYBOARD_LAYOUT_ALPHA:
-    return convert_to_hid_code_alpha(bitstring);
+    hid = convert_to_hid_code_alpha(bitstring);
+    break;
   case KEYBOARD_LAYOUT_NUMERIC:
-    return convert_to_hid_code_numeric(bitstring);
+    hid = convert_to_hid_code_numeric(bitstring);
+    break;
   default:
     ESP_LOGE(TAG, "UNKNOWN MODE %d, defaulting to alpha.", mode);
-    return convert_to_hid_code_alpha(bitstring);
+    hid = convert_to_hid_code_alpha(bitstring);
+    break;
+  }
+  out->hid = hid;
+  if (!hid)
+  {
+    out->encoder_flags = ENCODER_FLAG_REJECTED;
   }
 }
 
@@ -249,10 +240,8 @@ keyboard_cmd_t convert_to_hid_code_alpha(char bitstring)
   };
 }
 
-keyboard_system_command_t decode_command(encoder_output_t out)
+keyboard_system_command_t decode_command(command_decoder_state *command_state, encoder_output_t out)
 {
-  static int sequence_idx = 0;
-
   switch (out.encoder_flags)
   {
   case ENCODER_FLAG_GRIP:
@@ -260,37 +249,37 @@ keyboard_system_command_t decode_command(encoder_output_t out)
     return KEYBOARD_COMMAND_OFF;
     break;
   case ENCODER_FLAG_REJECTED:
-    sequence_idx = 0;
+    command_state->sequence_idx = 0;
     break;
   case ENCODER_FLAG_ACCEPTED:
     if (test_state(KEYBOARD_STATE_PAUSED))
     {
-      switch (sequence_idx)
+      switch (command_state->sequence_idx)
       {
       case 0:
-        sequence_idx = (out.hid == HID_KEY_A) ? 1 : 0;
+        command_state->sequence_idx = (out.hid == HID_KEY_A) ? 1 : 0;
         break;
       case 1:
-        sequence_idx = (out.hid == HID_KEY_B) ? 2 : 0;
+        command_state->sequence_idx = (out.hid == HID_KEY_B) ? 2 : 0;
         break;
       case 2:
-        sequence_idx = (out.hid == HID_KEY_D) ? 3 : 0;
+        command_state->sequence_idx = (out.hid == HID_KEY_D) ? 3 : 0;
         break;
       case 3:
-        sequence_idx = (out.hid == HID_KEY_H) ? 4 : 0;
+        command_state->sequence_idx = (out.hid == HID_KEY_H) ? 4 : 0;
         break;
       case 4:
         if (out.hid == HID_KEY_P)
         {
-          sequence_idx = 0;
+          command_state->sequence_idx = 0;
           return KEYBOARD_COMMAND_ON;
         }
         break;
       default:
-        sequence_idx = 0;
+        command_state->sequence_idx = 0;
         break;
       }
-      ESP_LOGI(TAG, "Unpause sequence idx %d.", sequence_idx);
+      ESP_LOGI(TAG, "Unpause sequence idx %d.", command_state->sequence_idx);
     }
   default:
     break;

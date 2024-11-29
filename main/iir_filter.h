@@ -3,8 +3,8 @@
 
 typedef struct {
     float sample_rate;
-    float target_frequency;
-    float qfactor;
+    float target_frequency[SENSOR_COUNT];
+    float qfactor[SENSOR_COUNT];
     float calibration_peak_multiplier;
     float calibration_time_seconds;
 } iir_filter_params;

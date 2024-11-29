@@ -19,15 +19,32 @@ typedef enum {
 } encoder_flags_t;
 
 typedef struct {
+    // Temporary data used during a single iteration.
     keyboard_cmd_t hid;
+    char accumulated_bitstring;
     encoder_flags_t encoder_flags;
 } encoder_output_t;
 
+
+typedef struct {
+  bool _in_envelope;
+  char _accumulated;
+  bool _rejected;
+
+unsigned long _accept_input_at;
+ unsigned long _reject_envelope_at;
+
+} envelope_encoder_state;
+
+typedef struct {
+  int sequence_idx;
+} command_decoder_state;
+
 keyboard_layout_t keyboard_mode_to_layout(keyboard_state_t mode);
 
-encoder_output_t decode_and_feedback(char pins, keyboard_state_t mode);
-keyboard_cmd_t convert_to_hid_code(char bitstring, keyboard_layout_t mode);
+encoder_output_t envelope_encode(envelope_encoder_state* envelope_state, char pin_bitstring, keyboard_state_t mode);
+void convert_to_hid_code(encoder_output_t* out, keyboard_state_t mode);
 
-keyboard_system_command_t decode_command(encoder_output_t out);
+keyboard_system_command_t decode_command(command_decoder_state* command_state, encoder_output_t out);
 
 #endif
