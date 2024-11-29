@@ -109,9 +109,12 @@ void convert_to_hid_code(encoder_output_t *out, keyboard_state_t mode)
 
   key_mask_t mask = 0;
   mask |= pins_pressed[6] ? LEFT_SHIFT_KEY_MASK : 0;
+
+  #ifndef DISABLECTRLALTWIN
   mask |= pins_pressed[7] ? LEFT_CONTROL_KEY_MASK : 0;
   mask |= pins_pressed[8] ? LEFT_ALT_KEY_MASK : 0;
   mask |= pins_pressed[9] ? LEFT_GUI_KEY_MASK : 0;
+  #endif
 
   if (test_state(KEYBOARD_STATE_BT_PASSKEY_ENTRY)){
     hid = convert_to_hid_code_numeric(bitstring);
