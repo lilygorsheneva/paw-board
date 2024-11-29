@@ -19,9 +19,7 @@
 #include "filter.h"
 #include "iir_filter.h"
 
-
 const static char *TAG = "MAIN";
-
 
 void hid_task(void *pvParameters)
 {
@@ -77,14 +75,13 @@ void app_main(void)
 
     iir_filter_params filter_params = {
         .sample_rate = 100,
-        .target_frequency = 5,
-        .qfactor = 0.05,
+        .target_frequency = {5, 5, 5, 5, 5},
+        .qfactor = {0.05, 0.05, 0.05, 0.05, 0.05},
         .calibration_peak_multiplier = 2.5,
-        .calibration_time_seconds = 2
-    };
+        .calibration_time_seconds = 2};
     default_filter_init(init_iir_filter(&filter_params));
 
-    //default_filter_init(init_old_filter());
+    // default_filter_init(init_old_filter());
 
     initialize_feedback();
 
