@@ -8,7 +8,9 @@ typedef struct {
     float calibration_peak_multiplier;
     float calibration_time_seconds;
 
-    // extra smoothing
+    // Whether button is holdable or not.
+    bool holdable[SENSOR_COUNT];
+    // extra smoothing, for holdable mode only.
     int debounce_count;
 
     // for sensors that somehow read zero when idle

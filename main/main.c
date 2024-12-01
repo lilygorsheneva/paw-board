@@ -85,6 +85,7 @@ void app_main(void)
         .sample_rate = 100,
         .target_frequency = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10},
         .qfactor = {0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5},
+        .holdable = {0,0,0,0,0,1,1,1,1,1},
         .calibration_peak_multiplier = 2.5,
         .calibration_time_seconds = 2,
         .debounce_count = 4,

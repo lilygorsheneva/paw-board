@@ -41,37 +41,54 @@ void iir_filter_process_filter(iir_filter_data *data, uint32_t *adc_raw, float *
     }
     if (test_state(KEYBOARD_STATE_SENSOR_LOGGING))
     {
-        ESP_LOGI(TAG, "FILTER_LOG | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f |", out[0], out[1], out[2], out[3], out[4],  out[5], out[6], out[7], out[8], out[9]);
+        ESP_LOGI(TAG, "FILTER_LOG | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f | %4f |", out[0], out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8], out[9]);
     }
+}
+
+void iir_filter_process_holdable(iir_filter_data *data, float *filtered_data, bool *pins_pressed, int i)
+{
+    if (pins_pressed[i])
+    {
+        // If pressed, wait for a "release".
+        // I fear this may lead to the sensor getting "sticky", but it's needed for held heys.
+        bool releasing = filtered_data[i] ADC_LT_OPERATOR(-data->thresholds[i]);
+        data->consecutive_movement[i] = releasing ? data->consecutive_movement[i] + 1 : 0;
+
+        if (data->consecutive_movement[i] > data->params.debounce_count)
+        {
+            pins_pressed[i] = false;
+            data->consecutive_movement[i] = 0;
+        }
+    }
+    else
+    {
+        // If not pressed, wait until it goes over the threshold.
+        bool pressing = filtered_data[i] ADC_GE_OPERATOR data->thresholds[i];
+        data->consecutive_movement[i] = pressing ? data->consecutive_movement[i] + 1 : 0;
+        if (data->consecutive_movement[i] > data->params.debounce_count)
+        {
+            pins_pressed[i] = true;
+            data->consecutive_movement[i] = 0;
+        }
+    }
+}
+
+void iir_filter_process_nonholdable(iir_filter_data *data, float *filtered_data, bool *pins_pressed, int i)
+{
+    pins_pressed[i] = filtered_data[i] ADC_GE_OPERATOR data->thresholds[i];
 }
 
 void iir_filter_process_normal(iir_filter_data *data, float *filtered_data, bool *pins_pressed)
 {
     for (int i = 0; i < SENSOR_COUNT; ++i)
     {
-        if (pins_pressed[i])
+        if (data->params.holdable[i])
         {
-            // If pressed, wait for a "release".
-            // I fear this may lead to the sensor getting "sticky", but it's needed for held heys.
-            bool releasing = filtered_data[i] ADC_LT_OPERATOR(-data->thresholds[i]);
-            data->consecutive_movement[i] = releasing ? data->consecutive_movement[i] + 1 : 0;
-
-            if (data->consecutive_movement[i] > data->params.debounce_count)
-            {
-                pins_pressed[i] = false;
-                data->consecutive_movement[i] = 0;
-            }
+            iir_filter_process_holdable(data, filtered_data, pins_pressed, i);
         }
         else
         {
-            // If not pressed, wait until it goes over the threshold.
-            bool pressing = filtered_data[i] ADC_GE_OPERATOR data->thresholds[i];
-            data->consecutive_movement[i] = pressing ? data->consecutive_movement[i] + 1 : 0;
-            if (data->consecutive_movement[i] > data->params.debounce_count)
-            {
-                pins_pressed[i] = true;
-                data->consecutive_movement[i] = 0;
-            }
+            iir_filter_process_nonholdable(data, filtered_data, pins_pressed, i);
         }
     }
 }
