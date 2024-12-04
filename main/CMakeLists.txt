@@ -1,4 +1,4 @@
-idf_component_register(SRCS "main.c"
+idf_component_register(SRCS "remote_config.c" "main.c"
                             "state.c"
                             "bluetooth.c"
                             "encoding.c"
