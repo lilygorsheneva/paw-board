@@ -118,16 +118,9 @@ typedef void (*esp_hidd_event_cb_t) (esp_hidd_cb_event_t event, esp_hidd_cb_para
 
 
 
-/**
- *
- * @brief           This function is called to receive hid device callback event
- *
- * @param[in]    callbacks: callback functions
- *
- * @return         ESP_OK - success, other - failed
- *
- */
-esp_err_t esp_hidd_register_callbacks(esp_hidd_event_cb_t callbacks);
+// Modified from esp_hidd_register_callbacks 
+// Only registers the esp_hidd_event_cb_t given and not apps or gatts callback.
+esp_err_t demo_register_hid_cb(esp_hidd_event_cb_t callbacks);
 
 /**
  *

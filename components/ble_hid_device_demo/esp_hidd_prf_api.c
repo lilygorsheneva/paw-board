@@ -23,7 +23,7 @@
 // HID consumer control input report length
 #define HID_CC_IN_RPT_LEN           2
 
-esp_err_t esp_hidd_register_callbacks(esp_hidd_event_cb_t callbacks)
+esp_err_t demo_register_hid_cb(esp_hidd_event_cb_t callbacks)
 {
     esp_err_t hidd_status;
 
@@ -31,16 +31,6 @@ esp_err_t esp_hidd_register_callbacks(esp_hidd_event_cb_t callbacks)
    	    hidd_le_env.hidd_cb = callbacks;
     } else {
         return ESP_FAIL;
-    }
-
-    if((hidd_status = hidd_register_cb()) != ESP_OK) {
-        return hidd_status;
-    }
-
-    esp_ble_gatts_app_register(BATTRAY_APP_ID);
-
-    if((hidd_status = esp_ble_gatts_app_register(HIDD_APP_ID)) != ESP_OK) {
-        return hidd_status;
     }
 
     return hidd_status;

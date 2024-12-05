@@ -331,5 +331,7 @@ void hidd_get_attr_value(uint16_t handle, uint16_t *length, uint8_t **value);
 
 esp_err_t hidd_register_cb(void);
 
+void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
+									esp_ble_gatts_cb_param_t *param);
 
 #endif  ///__HID_DEVICE_LE_PRF__

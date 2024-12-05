@@ -78,6 +78,94 @@ static esp_ble_adv_params_t hidd_adv_params = {
     .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
 
+#define MAX_BLE_PROFILES 3
+typedef enum
+{
+    INIT_STATUS_NONE = 0,
+    INIT_STATUS_REGISTER_START,
+    INIT_STATUS_REGISTER_PARTIAL,
+    INIT_STATUS_COMPLETE
+} initialization_status_t;
+struct ble_profile_inst
+{
+    esp_gatts_cb_t gatts_cb;
+    uint16_t gatts_if;
+    uint16_t app_id;
+    initialization_status_t init_status;
+};
+static struct ble_profile_inst ble_profiles_list[MAX_BLE_PROFILES] = {};
+
+esp_err_t ble_register_profile(uint16_t app_id, esp_gatts_cb_t callback)
+{
+    esp_err_t status;
+
+    for (int i = 0; i < MAX_BLE_PROFILES; ++i)
+    {
+        if (ble_profiles_list[i].init_status != INIT_STATUS_NONE)
+        {
+            continue;
+        }
+
+        status = esp_ble_gatts_app_register(app_id);
+        if (status != ESP_OK)
+        {
+            return status;
+        }
+
+        ble_profiles_list[i].app_id = app_id;
+        ble_profiles_list[i].gatts_cb = callback;
+        ble_profiles_list[i].init_status = INIT_STATUS_REGISTER_START;
+    }
+    return ESP_FAIL;
+}
+
+static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
+                                esp_ble_gatts_cb_param_t *param)
+{
+    /* If event is register event, store the gatts_if for each profile */
+    if (event == ESP_GATTS_REG_EVT)
+    {
+        if (param->reg.status == ESP_GATT_OK)
+        {
+            for (int i = 0; i < MAX_BLE_PROFILES; ++i)
+            {
+                if (ble_profiles_list[i].app_id == param->reg.app_id)
+                {
+                    ble_profiles_list[i].init_status = INIT_STATUS_REGISTER_PARTIAL;
+                    ble_profiles_list[i].gatts_if = gatts_if;
+                    ble_profiles_list[i].gatts_cb(event, gatts_if, param);
+                    return;
+                }
+            }
+             ESP_LOGI(TAG, "Reg cb on unknown app, app_id %04x\n",
+                     param->reg.app_id);
+            return;
+        }
+        else
+        {
+            ESP_LOGI(TAG, "Reg app failed, app_id %04x, status %d\n",
+                     param->reg.app_id,
+                     param->reg.status);
+            return;
+        }
+    }
+   
+    for (int i = 0; i < MAX_BLE_PROFILES; i++)
+        {
+            if (gatts_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
+                gatts_if == ble_profiles_list[i].gatts_if)
+            {
+                if (ble_profiles_list[i].gatts_cb)
+                {
+                    if (event == ESP_GATTS_CREAT_ATTR_TAB_EVT) {
+                        ble_profiles_list[i].init_status = INIT_STATUS_COMPLETE;
+                    }
+                    ble_profiles_list[i].gatts_cb(event, gatts_if, param);
+                }
+            }
+        }
+}
+
 static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
 {
     switch (event)
@@ -192,8 +280,16 @@ void bt_init(void)
     }
 
     /// register the callback function to the gap module
-    esp_ble_gap_register_callback(gap_event_handler);
-    esp_hidd_register_callbacks(hidd_event_callback);
+    ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event_handler));
+    ESP_ERROR_CHECK(esp_ble_gatts_register_callback(gatts_event_handler));
+
+    // Initialize battery and hid services.
+    demo_register_hid_cb(hidd_event_callback);
+    ble_register_profile(BATTRAY_APP_ID, esp_hidd_prf_cb_hdl);
+    ble_register_profile(HIDD_APP_ID, esp_hidd_prf_cb_hdl);
+
+    // ble_register_profile(RCFG_APP_ID, remote_config_gatt_callback_handler);
+    // TODO: implement wait for init? Is it even needed?
 
     /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/
     esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND; // bonding with peer device after authentication
@@ -213,8 +309,8 @@ void bt_send(key_mask_t mask, keyboard_cmd_t key)
     ESP_LOGI(TAG, "Send key | %d | %d", mask, key);
     uint8_t key_value[] = {0};
     key_value[0] = key;
-    
-    esp_hidd_send_keyboard_value(hid_conn_id, mask, key_value, (key ? 1 :0));
+
+    esp_hidd_send_keyboard_value(hid_conn_id, mask, key_value, (key ? 1 : 0));
 }
 
 char passkey_buffer[6] = {0};
@@ -222,7 +318,10 @@ int passkey_buffer_idx = 0;
 
 void bt_passkey_append(int digit)
 {
-    if (digit < 0 || digit > 9) {return;}
+    if (digit < 0 || digit > 9)
+    {
+        return;
+    }
     passkey_buffer[passkey_buffer_idx] = digit;
     passkey_buffer_idx = (passkey_buffer_idx + 1) % 6;
     ESP_LOGI(TAG, "Appending to passkey %d", digit);
@@ -241,34 +340,32 @@ void bt_passkey_send(void)
 
 char convert_hid_code_to_num(char code)
 {
-  switch (code)
-  {
-  case HID_KEY_1:
-    return 1;
-  case HID_KEY_2:
-    return 2;
-  case HID_KEY_3:
-    return 3;
-  case HID_KEY_4:
-    return 4;
-  case HID_KEY_5:
-    return 5;
-  case HID_KEY_6:
-    return 6;
-  case HID_KEY_7:
-    return 7;
-  case HID_KEY_8:
-    return 8;
-  case HID_KEY_9:
-    return 9;
-  case HID_KEY_0:
-    return 0;
-  default:
-    return -1;
-  };
+    switch (code)
+    {
+    case HID_KEY_1:
+        return 1;
+    case HID_KEY_2:
+        return 2;
+    case HID_KEY_3:
+        return 3;
+    case HID_KEY_4:
+        return 4;
+    case HID_KEY_5:
+        return 5;
+    case HID_KEY_6:
+        return 6;
+    case HID_KEY_7:
+        return 7;
+    case HID_KEY_8:
+        return 8;
+    case HID_KEY_9:
+        return 9;
+    case HID_KEY_0:
+        return 0;
+    default:
+        return -1;
+    };
 }
-
-
 
 void bt_passkey_process(char hid_code)
 {

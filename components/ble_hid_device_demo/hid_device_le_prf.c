@@ -687,42 +687,6 @@ static struct gatts_profile_inst heart_rate_profile_tab[PROFILE_NUM] = {
 
 };
 
-static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
-                                esp_ble_gatts_cb_param_t *param)
-{
-    /* If event is register event, store the gatts_if for each profile */
-    if (event == ESP_GATTS_REG_EVT) {
-        if (param->reg.status == ESP_GATT_OK) {
-            heart_rate_profile_tab[PROFILE_APP_IDX].gatts_if = gatts_if;
-        } else {
-            ESP_LOGI(HID_LE_PRF_TAG, "Reg app failed, app_id %04x, status %d\n",
-                    param->reg.app_id,
-                    param->reg.status);
-            return;
-        }
-    }
-
-    do {
-        int idx;
-        for (idx = 0; idx < PROFILE_NUM; idx++) {
-            if (gatts_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
-                    gatts_if == heart_rate_profile_tab[idx].gatts_if) {
-                if (heart_rate_profile_tab[idx].gatts_cb) {
-                    heart_rate_profile_tab[idx].gatts_cb(event, gatts_if, param);
-                }
-            }
-        }
-    } while (0);
-}
-
-
-esp_err_t hidd_register_cb(void)
-{
-	esp_err_t status;
-	status = esp_ble_gatts_register_callback(gatts_event_handler);
-	return status;
-}
-
 void hidd_set_attr_value(uint16_t handle, uint16_t val_len, const uint8_t *value)
 {
     hidd_inst_t *hidd_inst = &hidd_le_env.hidd_inst;

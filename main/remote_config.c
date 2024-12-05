@@ -98,6 +98,10 @@ void remote_config_gatt_callback_handler(esp_gatts_cb_event_t event, esp_gatt_if
 {
     switch (event)
     {
+    case ESP_GATTS_REG_EVT:
+        esp_ble_gatts_create_attr_tab(rcfg_gatt_db, gatts_if, IDX_RCFG_NB, 0);
+    break;
+
     case ESP_GATTS_WRITE_EVT:
         for (int i = 0; i < IDX_RCFG_NB; ++i)
         {
@@ -116,18 +120,15 @@ void remote_config_gatt_callback_handler(esp_gatts_cb_event_t event, esp_gatt_if
         }
         else if (param->add_attr_tab.num_handle != IDX_RCFG_NB)
         {
-            ESP_LOGE(TAG, "create attribute table abnormally, num_handle (%d) \
-                        doesn't equal to HRS_IDX_NB(%d)",
+            ESP_LOGE(TAG, "create attribute table abnormally, num_handle (%d) does not match (%d)",
                      param->add_attr_tab.num_handle, IDX_RCFG_NB);
         }
         else
         {
-            ESP_LOGI(TAG, "create attribute table successfully, the number handle = %d", param->add_attr_tab.num_handle);
             memcpy(rcfg_handle_table, param->add_attr_tab.handles, sizeof(rcfg_handle_table));
             esp_ble_gatts_start_service(rcfg_handle_table[IDX_RCFG_SVC]);
         }
         break;
-
     default:
         break;
     }
@@ -159,8 +160,3 @@ iir_filter_params get_remote_config(void)
         .min_threshold = 1};
     return filter_params;
 }
-
-// Need to call this from a registration handler. Need to edit le_prf.c to support that.
-// void init_remote_config(void){
-//         esp_ble_gatts_create_attr_tab(rcfg_gatt_db, gatts_if, IDX_RCFG_NB, 0);
-// }
