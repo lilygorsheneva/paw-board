@@ -81,7 +81,7 @@ static const esp_gatts_attr_db_t rcfg_gatt_db[IDX_RCFG_NB] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_NF_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_data), &initial_data}},
         /* Characteristic User Descriptione */
         [IDX_RCFG_CHAR_NORMAL_FREQ_DESC] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(NF_DESC), sizeof(NF_DESC), (uint8_t *)&NF_DESC}},
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(NF_DESC), sizeof(NF_DESC), NF_DESC}},
 
         [IDX_RCFG_CHAR_NORMAL_Q] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
@@ -89,14 +89,14 @@ static const esp_gatts_attr_db_t rcfg_gatt_db[IDX_RCFG_NB] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_NQ_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_data), &initial_data}},
 
         [IDX_RCFG_CHAR_NORMAL_Q_DESC] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(NQ_DESC), sizeof(NQ_DESC), (uint8_t *)&NQ_DESC}},
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(NQ_DESC), sizeof(NQ_DESC), NQ_DESC}},
 
         [IDX_RCFG_CHAR_HELD_FREQ] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
         [IDX_RCFG_CHAR_HELD_FREQ_VAL] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_HF_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_data), &initial_data}},
         [IDX_RCFG_CHAR_HELD_FREQ_DESC] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(HF_DESC), sizeof(HF_DESC), (uint8_t *)&HF_DESC}},
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(HF_DESC), sizeof(HF_DESC), HF_DESC}},
 
         [IDX_RCFG_CHAR_HELD_Q] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
@@ -105,7 +105,7 @@ static const esp_gatts_attr_db_t rcfg_gatt_db[IDX_RCFG_NB] =
 
         ,
         [IDX_RCFG_CHAR_HELD_Q_DESC] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(HQ_DESC), sizeof(HQ_DESC), (uint8_t *)&HQ_DESC}},
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(HQ_DESC), sizeof(HQ_DESC), HQ_DESC}},
 
         [IDX_RCFG_CHAR_DENOMINATOR] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
@@ -114,7 +114,7 @@ static const esp_gatts_attr_db_t rcfg_gatt_db[IDX_RCFG_NB] =
 
         ,
         [IDX_RCFG_CHAR_DENOMINATOR_DESC] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(DEN_DESC), sizeof(DEN_DESC), (uint8_t *)&DEN_DESC}},
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&characteristic_description_descriptor, ESP_GATT_PERM_READ, sizeof(DEN_DESC), sizeof(DEN_DESC), DEN_DESC}},
 };
 
 void remote_config_gatt_callback_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
