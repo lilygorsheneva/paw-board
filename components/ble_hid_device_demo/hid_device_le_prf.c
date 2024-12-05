@@ -388,7 +388,7 @@ static esp_gatts_attr_db_t hidd_le_gatt_db[HIDD_LE_IDX_NB] =
                                                                          (uint8_t *)&char_prop_read_notify}},
 
     [HIDD_LE_IDX_REPORT_MOUSE_IN_VAL]        = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&hid_report_uuid,
-                                                                       ESP_GATT_PERM_READ,
+                                                                       ESP_GATT_PERM_READ_ENC_MITM,
                                                                        HIDD_LE_REPORT_MAX_LEN, 0,
                                                                        NULL}},
 
@@ -408,7 +408,7 @@ static esp_gatts_attr_db_t hidd_le_gatt_db[HIDD_LE_IDX_NB] =
                                                                          (uint8_t *)&char_prop_read_notify}},
     // Report Characteristic Value
     [HIDD_LE_IDX_REPORT_KEY_IN_VAL]            = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&hid_report_uuid,
-                                                                       ESP_GATT_PERM_READ,
+                                                                       ESP_GATT_PERM_READ_ENC_MITM,
                                                                        HIDD_LE_REPORT_MAX_LEN, 0,
                                                                        NULL}},
     // Report KEY INPUT Characteristic - Client Characteristic Configuration Descriptor
@@ -429,7 +429,7 @@ static esp_gatts_attr_db_t hidd_le_gatt_db[HIDD_LE_IDX_NB] =
                                                                          (uint8_t *)&char_prop_read_write_write_nr}},
 
     [HIDD_LE_IDX_REPORT_LED_OUT_VAL]            = {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&hid_report_uuid,
-                                                                       ESP_GATT_PERM_READ|ESP_GATT_PERM_WRITE,
+                                                                       ESP_GATT_PERM_READ_ENC_MITM|ESP_GATT_PERM_WRITE,
                                                                        HIDD_LE_REPORT_MAX_LEN, 0,
                                                                        NULL}},
     [HIDD_LE_IDX_REPORT_LED_OUT_REP_REF]      =  {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&hid_report_ref_descr_uuid,
@@ -573,6 +573,7 @@ void esp_hidd_prf_cb_hdl(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
             if(hidd_le_env.hidd_cb != NULL) {
                 (hidd_le_env.hidd_cb)(ESP_HIDD_EVENT_BLE_CONNECT, &cb_param);
             }
+            esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
             break;
         }
         case ESP_GATTS_DISCONNECT_EVT: {

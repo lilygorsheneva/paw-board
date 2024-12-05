@@ -19,6 +19,7 @@
 #include "esp_bt.h"
 
 #include "bluetooth.h"
+#include "remote_config.h"
 #include "state.h"
 
 const static char *TAG = "BT";
@@ -156,7 +157,6 @@ switch (event)    {
 
     case ESP_GATTS_CONNECT_EVT: 
     // Fallthrough intentional for now.
-    esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
     default:
     for (int i = 0; i < MAX_BLE_PROFILES; i++)
     {
@@ -295,7 +295,7 @@ void bt_init(void)
     demo_register_hid_cb(hidd_event_callback);
     ESP_ERROR_CHECK(ble_register_profile(HIDD_APP_ID, esp_hidd_prf_cb_hdl));
 
-    // ble_register_profile(RCFG_APP_ID, remote_config_gatt_callback_handler);
+    ESP_ERROR_CHECK(ble_register_profile(RCFG_APP_ID, remote_config_gatt_callback_handler));
     // TODO: implement wait for init? Is it even needed?
 
     /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/

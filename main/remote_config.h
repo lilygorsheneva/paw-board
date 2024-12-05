@@ -4,7 +4,7 @@
 #include "iir_filter.h"
 #include "esp_gatts_api.h"
 
-#define RCFG_APP_ID			0xF00B
+#define RCFG_APP_ID			0x000F
 
 
 iir_filter_params get_remote_config(void);
