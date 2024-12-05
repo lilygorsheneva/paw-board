@@ -5,6 +5,7 @@
 #include "esp_log.h"
 
 #include "remote_config.h"
+#include "iir_filter.h"
 
 #define CHAR_DECLARATION_SIZE (sizeof(uint8_t))
 
@@ -17,45 +18,38 @@ enum
 
     // Normal filter (for non-held keys)
 
-    // These characteristics will all be treated as integers initially.
-    // Will figure out float later.
     // target_frequency in iir_filter_params
-    IDX_RCFG_CHAR_NORMAL_FREQ_NUM,
-    IDX_RCFG_CHAR_NORMAL_FREQ_NUM_VAL,
-    // sample_rate.
-    IDX_RCFG_CHAR_NORMAL_FREQ_DEN,
-    IDX_RCFG_CHAR_NORMAL_FREQ_DEN_VAL,
+    IDX_RCFG_CHAR_NORMAL_FREQ,
+    IDX_RCFG_CHAR_NORMAL_FREQ_VAL,
     // qfactor
     IDX_RCFG_CHAR_NORMAL_Q,
     IDX_RCFG_CHAR_NORMAL_Q_VAL,
 
     // Filter for held. Same as _NORMAL_ but applied to different ones.
-    IDX_RCFG_CHAR_HELD_FREQ_NUM,
-    IDX_RCFG_CHAR_HELD_FREQ_NUM_VAL,
-    IDX_RCFG_CHAR_HELD_FREQ_DEN,
-    IDX_RCFG_CHAR_HELD_FREQ_DEN_VAL,
+    IDX_RCFG_CHAR_HELD_FREQ,
+    IDX_RCFG_CHAR_HELD_FREQ_VAL,
     IDX_RCFG_CHAR_HELD_Q,
     IDX_RCFG_CHAR_HELD_Q_VAL,
 
-    // Bitmask allowing keys to be disabled.
-    IDX_RCFG_CHAR_KEY_MASK,
-    IDX_RCFG_CHAR_KEY_MASK_VAL,
+    // Sending floats seems to be a mess. Divide all values above by the denominator.
+    IDX_RCFG_CHAR_DENOMINATOR,
+    IDX_RCFG_CHAR_DENOMINATOR_VAL,
 
     IDX_RCFG_NB,
 };
 
-// I don't anticipate needing more than 2 bits for each field.
-#define RCFG_CHAR_LEN_MAX 2
-static const uint8_t initial_value[2] = {0};
+// Not every field needs to be the same length, but for a first attempt a single byte should be enough.
+#define RCFG_CHAR_LEN_MAX 1
+// This is gonna waste a significant amount of space due to being a sparse array. However, it's easy to implement in the super-short-term.
+uint8_t remote_config_data[IDX_RCFG_NB][RCFG_CHAR_LEN_MAX];
+uint16_t rcfg_handle_table[IDX_RCFG_NB];
 
 static const uint8_t RCFG_SVC_UUID[16] = {"lilypawsconf.svc"};
-static const uint8_t RCFG_CHAR_NFN_UUID[16] = {"lilypawsconf.nfn"};
-static const uint8_t RCFG_CHAR_NFD_UUID[16] = {"lilypawsconf.nfd"};
+static const uint8_t RCFG_CHAR_NF_UUID[16] = {"lilypawsconf. nf"};
 static const uint8_t RCFG_CHAR_NQ_UUID[16] = {"lilypawsconf. nq"};
-static const uint8_t RCFG_CHAR_HFN_UUID[16] = {"lilypawsconf.hfn"};
-static const uint8_t RCFG_CHAR_HFD_UUID[16] = {"lilypawsconf.hfd"};
+static const uint8_t RCFG_CHAR_HF_UUID[16] = {"lilypawsconf. hf"};
 static const uint8_t RCFG_CHAR_HQ_UUID[16] = {"lilypawsconf. hq"};
-static const uint8_t RCFG_CHAR_KM_UUID[16] = {"lilypawsconf. km"};
+static const uint8_t RCFG_CHAR_DEN_UUID[16] = {"lilypawsconf.den"};
 
 static const uint16_t primary_service_uuid = ESP_GATT_UUID_PRI_SERVICE;
 static const uint16_t character_declaration_uuid = ESP_GATT_UUID_CHAR_DECLARE;
@@ -70,52 +64,50 @@ static const esp_gatts_attr_db_t rcfg_gatt_db[IDX_RCFG_NB] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&primary_service_uuid, ESP_GATT_PERM_READ, sizeof(uint16_t), sizeof(RCFG_SVC_UUID), (uint8_t *)&RCFG_SVC_UUID}},
 
         /* Characteristic Declaration */
-        [IDX_RCFG_CHAR_NORMAL_FREQ_NUM] =
+        [IDX_RCFG_CHAR_NORMAL_FREQ] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
         /* Characteristic Value */
-        [IDX_RCFG_CHAR_NORMAL_FREQ_NUM_VAL] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_NFN_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_value), (uint8_t *)initial_value}},
-
-        [IDX_RCFG_CHAR_NORMAL_FREQ_DEN] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
-        [IDX_RCFG_CHAR_NORMAL_FREQ_DEN_VAL] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_NFD_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_value), (uint8_t *)initial_value}},
+        [IDX_RCFG_CHAR_NORMAL_FREQ_VAL] =
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_NF_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, RCFG_CHAR_LEN_MAX, remote_config_data[IDX_RCFG_CHAR_NORMAL_FREQ_VAL]}},
 
         [IDX_RCFG_CHAR_NORMAL_Q] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
         [IDX_RCFG_CHAR_NORMAL_Q_VAL] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_NQ_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_value), (uint8_t *)initial_value}},
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_NQ_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, RCFG_CHAR_LEN_MAX, remote_config_data[IDX_RCFG_CHAR_NORMAL_Q_VAL]}},
 
         /* Characteristic Declaration */
-        [IDX_RCFG_CHAR_HELD_FREQ_NUM] =
+        [IDX_RCFG_CHAR_HELD_FREQ] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
         /* Characteristic Value */
-        [IDX_RCFG_CHAR_HELD_FREQ_NUM_VAL] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_HFN_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_value), (uint8_t *)initial_value}},
-
-        [IDX_RCFG_CHAR_HELD_FREQ_DEN] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
-        [IDX_RCFG_CHAR_HELD_FREQ_DEN_VAL] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_HFD_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_value), (uint8_t *)initial_value}},
+        [IDX_RCFG_CHAR_HELD_FREQ_VAL] =
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_HF_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, RCFG_CHAR_LEN_MAX, remote_config_data[IDX_RCFG_CHAR_HELD_FREQ_VAL]}},
 
         [IDX_RCFG_CHAR_HELD_Q] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
         [IDX_RCFG_CHAR_HELD_Q_VAL] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_HQ_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_value), (uint8_t *)initial_value}},
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_HQ_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, RCFG_CHAR_LEN_MAX, remote_config_data[IDX_RCFG_CHAR_HELD_Q_VAL]}},
 
-        [IDX_RCFG_CHAR_KEY_MASK] =
+        [IDX_RCFG_CHAR_DENOMINATOR] =
             {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&character_declaration_uuid, ESP_GATT_PERM_READ, CHAR_DECLARATION_SIZE, CHAR_DECLARATION_SIZE, (uint8_t *)&char_prop_write}},
-        [IDX_RCFG_CHAR_KEY_MASK_VAL] =
-            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_KM_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, sizeof(initial_value), (uint8_t *)initial_value}},
+        [IDX_RCFG_CHAR_DENOMINATOR_VAL] =
+            {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_128, (uint8_t *)&RCFG_CHAR_DEN_UUID, ESP_GATT_PERM_WRITE, RCFG_CHAR_LEN_MAX, RCFG_CHAR_LEN_MAX, remote_config_data[IDX_RCFG_CHAR_DENOMINATOR_VAL]}},
 };
-
-uint16_t rcfg_handle_table[IDX_RCFG_NB];
 
 void remote_config_gatt_callback_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_if,
                                          esp_ble_gatts_cb_param_t *param)
 {
     switch (event)
     {
+    case ESP_GATTS_WRITE_EVT:
+        for (int i = 0; i < IDX_RCFG_NB; ++i)
+        {
+            if (param->write.handle == rcfg_handle_table[i])
+            {
+                memcpy(remote_config_data[i], param->write.value, param->write.len);
+                break;
+            }
+        }
+        break;
 
     case ESP_GATTS_CREAT_ATTR_TAB_EVT:
         if (param->add_attr_tab.status != ESP_GATT_OK)
@@ -140,3 +132,35 @@ void remote_config_gatt_callback_handler(esp_gatts_cb_event_t event, esp_gatt_if
         break;
     }
 }
+
+iir_filter_params filter_params;
+
+iir_filter_params get_remote_config(void)
+{
+    uint8_t denominator = remote_config_data[IDX_RCFG_CHAR_DENOMINATOR_VAL][0];
+    if (denominator == 0)
+    {
+        denominator = 1;
+    }
+
+    float freq_normal = remote_config_data[IDX_RCFG_CHAR_NORMAL_FREQ_VAL][0] / denominator;
+    float freq_held = remote_config_data[IDX_RCFG_CHAR_HELD_FREQ_VAL][0] / denominator;
+    float q_normal = remote_config_data[IDX_RCFG_CHAR_NORMAL_Q_VAL][0] / denominator;
+    float q_held = remote_config_data[IDX_RCFG_CHAR_HELD_Q_VAL][0] / denominator;
+
+    iir_filter_params filter_params = {
+        .sample_rate = 100,
+        .target_frequency = {freq_normal, freq_normal, freq_normal, freq_normal, freq_normal, freq_held, freq_held, freq_held, freq_held, freq_held},
+        .qfactor = {q_normal, q_normal, q_normal, q_normal, q_normal, q_held, q_held, q_held, q_held, q_held},
+        .holdable = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1},
+        .calibration_peak_multiplier = 2.5,
+        .calibration_time_seconds = 2,
+        .debounce_count = 4,
+        .min_threshold = 1};
+    return filter_params;
+}
+
+// Need to call this from a registration handler. Need to edit le_prf.c to support that.
+// void init_remote_config(void){
+//         esp_ble_gatts_create_attr_tab(rcfg_gatt_db, gatts_if, IDX_RCFG_NB, 0);
+// }

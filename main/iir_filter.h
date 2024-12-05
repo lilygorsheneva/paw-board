@@ -1,5 +1,6 @@
 #ifndef IIR_FILTER_H__
 #define IIR_FILTER_H__
+#include "constants.h"
 
 typedef struct {
     float sample_rate;
