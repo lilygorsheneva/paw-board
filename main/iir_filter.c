@@ -6,6 +6,8 @@
 #include "constants.h"
 #include "iir_filter.h"
 #include "state.h"
+#include "remote_config.h"
+
 
 const static char *TAG = "FILTER";
 
@@ -143,33 +145,9 @@ void iir_sensor_process(filter_handle_t filter_handle, uint32_t *adc_raw, bool *
     return;
 }
 
-void iir_filter_calibration_start(filter_handle_t filter_handle, uint32_t *adc_raw)
+void iir_filter_load_params(filter_handle_t filter_handle, iir_filter_params *params)
 {
-    ESP_LOGI(TAG, "Enter IIR calibration");
-
     iir_filter_data *data = (iir_filter_data *)filter_handle->filter_data;
-
-    // Sample N seconds of noise.
-    data->calibration_countdown = (data->params.calibration_time_seconds) * (data->params.sample_rate);
-
-    for (int i = 0; i < SENSOR_COUNT; ++i)
-    {
-        data->thresholds[i] = 0;
-    }
-}
-
-void iir_filter_calibration_end(filter_handle_t filter_handle, uint32_t *adc_raw) {}
-
-void *init_iir_filter(iir_filter_params *params)
-{
-    filter_handle_t filter_handle = malloc(sizeof(filter));
-    filter_handle->self = filter_handle;
-    filter_handle->process = iir_sensor_process;
-    filter_handle->calibrate_start = iir_filter_calibration_start;
-    filter_handle->calibrate_end = iir_filter_calibration_end;
-
-    iir_filter_data *data = calloc(1, sizeof(iir_filter_data));
-    filter_handle->filter_data = (void *)data;
     data->params = *params;
 
     esp_err_t err = ESP_OK;
@@ -183,11 +161,46 @@ void *init_iir_filter(iir_filter_params *params)
         if (err != ESP_OK)
         {
             ESP_LOGE(TAG, "Operation error = %i", err);
-            return NULL;
         }
     }
 
     data->calibration_countdown = (data->params.calibration_time_seconds + 2) * (data->params.sample_rate);
+    data->params = *params;
+}
+
+void iir_filter_calibration_start(filter_handle_t filter_handle, uint32_t *adc_raw)
+{
+    ESP_LOGI(TAG, "Enter IIR calibration");
+
+    iir_filter_data *data = (iir_filter_data *)filter_handle->filter_data;
+  
+    for (int i = 0; i < SENSOR_COUNT; ++i)
+    {
+        data->thresholds[i] = 0;
+    }
+
+    
+    iir_filter_params new_params = get_remote_config();
+    if (new_params.sample_rate != 0) {
+        iir_filter_load_params(filter_handle, &new_params);
+    }
+}
+
+void iir_filter_calibration_end(filter_handle_t filter_handle, uint32_t *adc_raw) {}
+
+
+
+void *init_iir_filter(iir_filter_params *params)
+{
+    filter_handle_t filter_handle = malloc(sizeof(filter));
+    filter_handle->self = filter_handle;
+    filter_handle->process = iir_sensor_process;
+    filter_handle->calibrate_start = iir_filter_calibration_start;
+    filter_handle->calibrate_end = iir_filter_calibration_end;
+
+    iir_filter_data *data = calloc(1, sizeof(iir_filter_data));
+    filter_handle->filter_data = (void *)data;
+    iir_filter_load_params(filter_handle, params);
 
     return filter_handle;
 }

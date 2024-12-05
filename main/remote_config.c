@@ -170,13 +170,18 @@ iir_filter_params get_remote_config(void)
     uint8_t denominator = get_int_value(IDX_RCFG_CHAR_DENOMINATOR_VAL);
     if (denominator == 0)
     {
-        denominator = 100;
+        iir_filter_params blank = {};
+        // TODO NICER API HERE
+        ESP_LOGE(TAG, "DENOMINATOR UNSET. DO NOT USE THIS DATA.");
+        return blank;
     }
 
     float freq_normal = get_int_value(IDX_RCFG_CHAR_NORMAL_FREQ_VAL) / denominator;
     float freq_held = get_int_value(IDX_RCFG_CHAR_HELD_FREQ_VAL) / denominator;
     float q_normal = get_int_value(IDX_RCFG_CHAR_NORMAL_Q_VAL) / denominator;
     float q_held = get_int_value(IDX_RCFG_CHAR_HELD_Q_VAL) / denominator;
+
+    ESP_LOGI(TAG, "REMOTE PARAMS %f,%f,%f,%f", freq_normal, freq_held, q_normal, q_held);
 
     iir_filter_params filter_params = {
         .sample_rate = 100,
