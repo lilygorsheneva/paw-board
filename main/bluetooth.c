@@ -293,7 +293,6 @@ void bt_init(void)
 
     // Initialize battery and hid services.
     demo_register_hid_cb(hidd_event_callback);
-    ESP_ERROR_CHECK(ble_register_profile(BATTRAY_APP_ID, esp_hidd_prf_cb_hdl));
     ESP_ERROR_CHECK(ble_register_profile(HIDD_APP_ID, esp_hidd_prf_cb_hdl));
 
     // ble_register_profile(RCFG_APP_ID, remote_config_gatt_callback_handler);
