@@ -106,16 +106,19 @@ esp_err_t ble_register_profile(uint16_t app_id, esp_gatts_cb_t callback)
             continue;
         }
 
+        ble_profiles_list[i].app_id = app_id;
+        ble_profiles_list[i].gatts_cb = callback;
+        ble_profiles_list[i].init_status = INIT_STATUS_REGISTER_START;
+
         status = esp_ble_gatts_app_register(app_id);
         if (status != ESP_OK)
         {
             return status;
         }
 
-        ble_profiles_list[i].app_id = app_id;
-        ble_profiles_list[i].gatts_cb = callback;
-        ble_profiles_list[i].init_status = INIT_STATUS_REGISTER_START;
+        return ESP_OK;
     }
+    ESP_LOGI(TAG, "Unable to register, app_id %04x, out of slots in ble_profiles_list.\n", app_id);
     return ESP_FAIL;
 }
 
@@ -123,8 +126,8 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
                                 esp_ble_gatts_cb_param_t *param)
 {
     /* If event is register event, store the gatts_if for each profile */
-    if (event == ESP_GATTS_REG_EVT)
-    {
+switch (event)    {
+    case ESP_GATTS_REG_EVT:
         if (param->reg.status == ESP_GATT_OK)
         {
             for (int i = 0; i < MAX_BLE_PROFILES; ++i)
@@ -134,36 +137,43 @@ static void gatts_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_t gatts_
                     ble_profiles_list[i].init_status = INIT_STATUS_REGISTER_PARTIAL;
                     ble_profiles_list[i].gatts_if = gatts_if;
                     ble_profiles_list[i].gatts_cb(event, gatts_if, param);
+                    ESP_LOGI(TAG, "Reg cb success, app_id %04x\n", param->reg.app_id);
                     return;
                 }
             }
-             ESP_LOGI(TAG, "Reg cb on unknown app, app_id %04x\n",
+            ESP_LOGI(TAG, "Reg cb on unknown app, app_id %04x\n",
                      param->reg.app_id);
             return;
         }
         else
         {
-            ESP_LOGI(TAG, "Reg app failed, app_id %04x, status %d\n",
+            ESP_LOGI(TAG, "Reg app failed, app_id %04x, status %04x\n",
                      param->reg.app_id,
                      param->reg.status);
             return;
         }
-    }
-   
+    break;
+
+    case ESP_GATTS_CONNECT_EVT: 
+    // Fallthrough intentional for now.
+    esp_ble_set_encryption(param->connect.remote_bda, ESP_BLE_SEC_ENCRYPT_MITM);
+    default:
     for (int i = 0; i < MAX_BLE_PROFILES; i++)
+    {
+        if (gatts_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
+            gatts_if == ble_profiles_list[i].gatts_if)
         {
-            if (gatts_if == ESP_GATT_IF_NONE || /* ESP_GATT_IF_NONE, not specify a certain gatt_if, need to call every profile cb function */
-                gatts_if == ble_profiles_list[i].gatts_if)
+            if (ble_profiles_list[i].gatts_cb)
             {
-                if (ble_profiles_list[i].gatts_cb)
+                if (event == ESP_GATTS_CREAT_ATTR_TAB_EVT)
                 {
-                    if (event == ESP_GATTS_CREAT_ATTR_TAB_EVT) {
-                        ble_profiles_list[i].init_status = INIT_STATUS_COMPLETE;
-                    }
-                    ble_profiles_list[i].gatts_cb(event, gatts_if, param);
+                    ble_profiles_list[i].init_status = INIT_STATUS_COMPLETE;
                 }
+                ble_profiles_list[i].gatts_cb(event, gatts_if, param);
             }
         }
+    }
+}
 }
 
 static void hidd_event_callback(esp_hidd_cb_event_t event, esp_hidd_cb_param_t *param)
@@ -220,8 +230,6 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         break;
     case ESP_GAP_BLE_AUTH_CMPL_EVT:
         update_bt_state(KEYBOARD_STATE_BT_CONNECTED);
-        esp_bd_addr_t bd_addr;
-        memcpy(bd_addr, param->ble_security.auth_cmpl.bd_addr, sizeof(esp_bd_addr_t));
         break;
     default:
         break;
@@ -285,16 +293,17 @@ void bt_init(void)
 
     // Initialize battery and hid services.
     demo_register_hid_cb(hidd_event_callback);
-    ble_register_profile(BATTRAY_APP_ID, esp_hidd_prf_cb_hdl);
-    ble_register_profile(HIDD_APP_ID, esp_hidd_prf_cb_hdl);
+    ESP_ERROR_CHECK(ble_register_profile(BATTRAY_APP_ID, esp_hidd_prf_cb_hdl));
+    ESP_ERROR_CHECK(ble_register_profile(HIDD_APP_ID, esp_hidd_prf_cb_hdl));
 
     // ble_register_profile(RCFG_APP_ID, remote_config_gatt_callback_handler);
     // TODO: implement wait for init? Is it even needed?
 
     /* set the security iocap & auth_req & key size & init key response key parameters to the stack*/
-    esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND; // bonding with peer device after authentication
+    esp_ble_auth_req_t auth_req = ESP_LE_AUTH_REQ_SC_MITM_BOND; // bonding with peer device after authentication
     esp_ble_io_cap_t iocap = ESP_IO_CAP_IN;         // Has/is a keyboard.
     uint8_t key_size = 16;                          // the key size should be 7~16 bytes
+
     uint8_t init_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
     uint8_t rsp_key = ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK;
     esp_ble_gap_set_security_param(ESP_BLE_SM_AUTHEN_REQ_MODE, &auth_req, sizeof(uint8_t));
