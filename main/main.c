@@ -83,7 +83,7 @@ void app_main(void)
 
     iir_filter_params filter_params = {
         .sample_rate = 100,
-        .target_frequency = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10},
+        .target_frequency = {2, 2, 2, 2, 2, 10, 10, 10, 10, 10},
         .qfactor = {0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5},
         .holdable = {0,0,0,0,0,1,1,1,1,1},
         .calibration_peak_multiplier = 2.5,
