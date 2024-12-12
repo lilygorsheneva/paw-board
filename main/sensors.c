@@ -8,7 +8,6 @@
 #include "esp_log.h"
 #include "esp_adc/adc_oneshot.h"
 #include "driver/gpio.h"
-#include "driver/touch_sensor.h"
 
 #include "constants.h"
 #include "sensors.h"
@@ -22,10 +21,9 @@
 const static char *TAG = "SENSOR";
 
 static adc_channel_t adc_channels[] = SENSOR_ADC_CHANNELS;
-static touch_pad_t capacitive_channels[] = SENSOR_CAPACITIVE_CHANNELS;
 
 static uint32_t adc_raw[SENSOR_COUNT];
-bool pins_pressed[SENSOR_COUNT];
+bool pins_pressed[SENSOR_COUNT] = {0};
 
 #ifdef JUMPERS_COMMON_POSITIVE
 #define JUMPERS_SIGN_OPERATOR
@@ -64,30 +62,10 @@ void pressure_sensor_init(void)
   }
 }
 
-void capacitive_sensor_init(void)
-{
-  touch_pad_init();
-  for (int i = 0; i < CAPACITIVE_SENSOR_COUNT; i++)
-  {
-    touch_pad_config(capacitive_channels[i]);
-  }
-      touch_pad_denoise_t denoise = {
-        .grade = TOUCH_PAD_DENOISE_BIT4,
-        .cap_level = TOUCH_PAD_DENOISE_CAP_L4,
-    };
-    touch_pad_denoise_set_config(&denoise);
-    touch_pad_denoise_enable();
-
-    // Default speed is probably too fast. Slow down for power saving?
-    touch_pad_set_fsm_mode(TOUCH_FSM_MODE_TIMER);
-    touch_pad_fsm_start();
-}
-
 void sensor_init(void)
 {
   jumpers_init();
   pressure_sensor_init();
-  capacitive_sensor_init();
   ESP_LOGI(TAG, "Init sensors");
 }
 
@@ -142,10 +120,6 @@ void pressure_sensor_read_raw(void)
     int tmp;
     ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, adc_channels[i], &tmp));
     adc_raw[i] = tmp;
-  }
-  for (int i = 0; i < CAPACITIVE_SENSOR_COUNT; ++i)
-  {
-    touch_pad_read_raw_data(capacitive_channels[i], &adc_raw[i + ADC_SENSOR_COUNT]);
   }
 }
 
