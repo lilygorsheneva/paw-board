@@ -183,6 +183,8 @@ void iir_filter_calibration_start(filter_handle_t filter_handle, uint32_t *adc_r
     iir_filter_params new_params = get_remote_config();
     if (new_params.sample_rate != 0) {
         iir_filter_load_params(filter_handle, &new_params);
+    } else {
+        data->calibration_countdown = (data->params.calibration_time_seconds) * (data->params.sample_rate);
     }
 }
 

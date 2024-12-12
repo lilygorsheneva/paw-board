@@ -61,11 +61,11 @@ static const uint8_t char_prop_read = ESP_GATT_CHAR_PROP_BIT_READ;
 static const uint8_t char_prop_write = ESP_GATT_CHAR_PROP_BIT_WRITE;
 static const uint8_t char_prop_read_write_notify = ESP_GATT_CHAR_PROP_BIT_WRITE | ESP_GATT_CHAR_PROP_BIT_READ | ESP_GATT_CHAR_PROP_BIT_NOTIFY;
 
-static const uint8_t NF_DESC[] = "Target frequency of normal sensors (numerator).";
-static const uint8_t NQ_DESC[] = "Q factor of normal sensors (numerator).";
-static const uint8_t HF_DESC[] = "Target frequency of held sensors (numerator).";
-static const uint8_t HQ_DESC[] = "Q factor of held sensors (numerator).";
-static const uint8_t DEN_DESC[] = "Denominator frequency and q factor.";
+static  uint8_t NF_DESC[] = "Target frequency of normal sensors (numerator).";
+static  uint8_t NQ_DESC[] = "Q factor of normal sensors (numerator).";
+static  uint8_t HF_DESC[] = "Target frequency of held sensors (numerator).";
+static  uint8_t HQ_DESC[] = "Q factor of held sensors (numerator).";
+static  uint8_t DEN_DESC[] = "Denominator frequency and q factor.";
 
 static const esp_gatts_attr_db_t rcfg_gatt_db[IDX_RCFG_NB] =
     {
@@ -176,10 +176,10 @@ iir_filter_params get_remote_config(void)
         return blank;
     }
 
-    float freq_normal = get_int_value(IDX_RCFG_CHAR_NORMAL_FREQ_VAL) / denominator;
-    float freq_held = get_int_value(IDX_RCFG_CHAR_HELD_FREQ_VAL) / denominator;
-    float q_normal = get_int_value(IDX_RCFG_CHAR_NORMAL_Q_VAL) / denominator;
-    float q_held = get_int_value(IDX_RCFG_CHAR_HELD_Q_VAL) / denominator;
+    float freq_normal = ((float)get_int_value(IDX_RCFG_CHAR_NORMAL_FREQ_VAL)) / denominator;
+    float freq_held = ((float)get_int_value(IDX_RCFG_CHAR_HELD_FREQ_VAL)) / denominator;
+    float q_normal = ((float)get_int_value(IDX_RCFG_CHAR_NORMAL_Q_VAL)) / denominator;
+    float q_held = ((float)get_int_value(IDX_RCFG_CHAR_HELD_Q_VAL)) / denominator;
 
     ESP_LOGI(TAG, "REMOTE PARAMS %f,%f,%f,%f", freq_normal, freq_held, q_normal, q_held);
 
