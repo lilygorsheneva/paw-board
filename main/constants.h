@@ -14,9 +14,10 @@
 
 
 #define ADC_SENSOR_COUNT 5
-#define CAPACITIVE_SENSOR_COUNT 5
 
-#define SENSOR_COUNT ADC_SENSOR_COUNT + CAPACITIVE_SENSOR_COUNT 
+// Additional buttons will be used for modifier keys but I am currently missing hardware.
+// These may be adc (second hand of pressure sensors) or digital gpio (buttons).
+#define SENSOR_COUNT 10 
 
 
 // ADC on pins labeled on Arduino as A0,A1,A2,A3,D2
@@ -24,7 +25,7 @@
 #define ADC_ATTENUATION ADC_ATTEN_DB_2_5
 
 // D3,D4,D5,D6,D7
-#define SENSOR_CAPACITIVE_CHANNELS {TOUCH_PAD_NUM6, TOUCH_PAD_NUM7, TOUCH_PAD_NUM8, TOUCH_PAD_NUM9, TOUCH_PAD_NUM10}
+// Unused but these will likely house future sensors/buttons.
 
 // Selected to not conflict with feedback selections.
 // Calibration pin may be better on an RTC gpio to be used as a wake button in the distant future.
