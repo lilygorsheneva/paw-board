@@ -53,6 +53,6 @@
 // Select positive/negative for pins. Defaults to common ground
 #define FEEDBACK_COMMON_POSITIVE
 
-#define DISABLECTRLALTWIN
+//#define DISABLECTRLALTWIN
 
 #endif

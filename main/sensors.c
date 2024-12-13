@@ -89,6 +89,7 @@ void sensor_init(void)
 {
   jumpers_init();
   pressure_sensor_init();
+  digital_button_init();
   ESP_LOGI(TAG, "Init sensors");
 }
 
@@ -146,11 +147,13 @@ void pressure_sensor_read_raw(void)
   }
 }
 
-void digital_sensor_raw(void)
+void digital_sensor_read_raw(void)
 {
   for (int i = 0; i < DIGITAL_SENSOR_COUNT; ++i)
   {
-    adc_raw[i + ADC_SENSOR_COUNT] = gpio_get_level(digital_sensors[i]);
+    // Multiplier here is a hack to get around filters having a minimum threshold value.
+    // That should be configurable per-channel or bypassed entirely, but i have a demo to do soon.
+    adc_raw[i + ADC_SENSOR_COUNT] = 100*(gpio_get_level(digital_sensors[i]));
   }
 }
 
@@ -177,6 +180,7 @@ void pressure_sensor_calibration_manage()
 char pressure_sensor_read(void)
 {
   pressure_sensor_read_raw();
+  digital_sensor_read_raw();
   pressure_sensor_calibration_manage();
   default_filter_process(adc_raw, pins_pressed);
 
