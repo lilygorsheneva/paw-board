@@ -206,3 +206,17 @@ void *init_iir_filter(iir_filter_params *params)
 
     return filter_handle;
 }
+
+static iir_filter_params default_filter_params = {
+    .sample_rate = 100,
+    .target_frequency = {2, 2, 2, 2, 2, 10, 10, 10, 10, 10},
+    .qfactor = {0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5},
+    .holdable = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1},
+    .calibration_peak_multiplier = 2.5,
+    .calibration_time_seconds = 2,
+    .debounce_count = 4,
+    .min_threshold = 1};
+
+void *init_iir_filter_default(void){
+    return (init_iir_filter(&default_filter_params));
+}

@@ -15,7 +15,6 @@
 #include "constants.h"
 #include "state.h"
 #include "bluetooth.h"
-#include "old_filter.h"
 #include "filter.h"
 #include "iir_filter.h"
 
@@ -81,16 +80,8 @@ void app_main(void)
     bt_init();
     sensor_init();
 
-    iir_filter_params filter_params = {
-        .sample_rate = 100,
-        .target_frequency = {2, 2, 2, 2, 2, 10, 10, 10, 10, 10},
-        .qfactor = {0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5},
-        .holdable = {0,0,0,0,0,1,1,1,1,1},
-        .calibration_peak_multiplier = 2.5,
-        .calibration_time_seconds = 2,
-        .debounce_count = 4,
-        .min_threshold = 1};
-    default_filter_init(init_iir_filter(&filter_params));
+
+    default_filter_init(init_iir_filter_default());
 
     initialize_feedback();
 

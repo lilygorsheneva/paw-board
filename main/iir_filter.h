@@ -2,7 +2,8 @@
 #define IIR_FILTER_H__
 #include "constants.h"
 
-typedef struct {
+typedef struct
+{
     float sample_rate;
     float target_frequency[SENSOR_COUNT];
     float qfactor[SENSOR_COUNT];
@@ -18,5 +19,7 @@ typedef struct {
     float min_threshold;
 } iir_filter_params;
 
-void* init_iir_filter(iir_filter_params* params);
+void *init_iir_filter(iir_filter_params *params);
+void *init_iir_filter_default(void);
+
 #endif
