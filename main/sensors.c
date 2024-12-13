@@ -21,6 +21,7 @@
 const static char *TAG = "SENSOR";
 
 static adc_channel_t adc_channels[] = SENSOR_ADC_CHANNELS;
+static uint8_t digital_sensors[] = DIGITAL_SENSORS;
 
 static uint32_t adc_raw[SENSOR_COUNT];
 bool pins_pressed[SENSOR_COUNT] = {0};
@@ -29,6 +30,12 @@ bool pins_pressed[SENSOR_COUNT] = {0};
 #define JUMPERS_SIGN_OPERATOR
 #else
 #define JUMPERS_SIGN_OPERATOR !
+#endif
+
+#ifdef DIGITAL_COMMON_POSITIVE
+#define DIGITAL_BUTTON_SIGN_OPERATOR
+#else
+#define DIGITAL_BUTTON_SIGN_OPERATOR !
 #endif
 
 static adc_oneshot_unit_handle_t adc1_handle;
@@ -41,6 +48,22 @@ void jumpers_init(void)
   io_conf.pin_bit_mask = JUMPERS_BIT_MASK;
   io_conf.pull_down_en = JUMPERS_SIGN_OPERATOR 1;
   io_conf.pull_up_en = JUMPERS_SIGN_OPERATOR 0;
+  gpio_config(&io_conf);
+}
+
+void digital_button_init(void)
+{
+  uint64_t bit_mask = 0;
+  for (int i = 0; i < DIGITAL_SENSOR_COUNT; ++i)
+  {
+    bit_mask |= (1ULL << digital_sensors[i]);
+  }
+  gpio_config_t io_conf = {};
+  io_conf.intr_type = GPIO_INTR_DISABLE;
+  io_conf.mode = GPIO_MODE_INPUT;
+  io_conf.pin_bit_mask = bit_mask;
+  io_conf.pull_down_en = DIGITAL_BUTTON_SIGN_OPERATOR 1;
+  io_conf.pull_up_en = DIGITAL_BUTTON_SIGN_OPERATOR 0;
   gpio_config(&io_conf);
 }
 
@@ -95,7 +118,7 @@ int pins_pressed_count(void)
 char pressure_bits_to_num(void)
 {
   char buf = 0;
-  for (int i = 0; i < ADC_SENSOR_COUNT; ++i)
+  for (int i = 0; i < ENCODING_SENSOR_COUNT; ++i)
   {
     buf = buf + (pins_pressed[i] * (1 << i));
   }
@@ -120,6 +143,14 @@ void pressure_sensor_read_raw(void)
     int tmp;
     ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, adc_channels[i], &tmp));
     adc_raw[i] = tmp;
+  }
+}
+
+void digital_sensor_raw(void)
+{
+  for (int i = 0; i < DIGITAL_SENSOR_COUNT; ++i)
+  {
+    adc_raw[i + ADC_SENSOR_COUNT] = gpio_get_level(digital_sensors[i]);
   }
 }
 

@@ -14,24 +14,32 @@
 
 
 #define ADC_SENSOR_COUNT 5
+#define DIGITAL_SENSOR_COUNT 5
 
-// Additional buttons will be used for modifier keys but I am currently missing hardware.
-// These may be adc (second hand of pressure sensors) or digital gpio (buttons).
-#define SENSOR_COUNT 10 
+#define ENCODING_SENSOR_COUNT 5
+#define MODIFIER_SENSOR_COUNT 5
+#define SENSOR_COUNT ENCODING_SENSOR_COUNT + MODIFIER_SENSOR_COUNT 
 
 
 // ADC on pins labeled on Arduino as A0,A1,A2,A3,D2
 #define SENSOR_ADC_CHANNELS {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3, ADC_CHANNEL_4}
 #define ADC_ATTENUATION ADC_ATTEN_DB_2_5
+// Select positive/negative for pins. Defaults to common ground
+#define ADC_COMMON_POSITIVE
 
-// D3,D4,D5,D6,D7
-// Unused but these will likely house future sensors/buttons.
+// Digital buttons for modifiers on D3,D4,D5,D6,D7
+// Technically, these shouldn't go through filtering. However, held button filters shouldn't interfere with them.
+#define DIGITAL_SENSORS {6,7,8,9,10}
+// Select positive/negative for pins. Defaults to common ground
+#define DIGITAL_COMMON_POSITIVE
+
 
 // Selected to not conflict with feedback selections.
 // Calibration pin may be better on an RTC gpio to be used as a wake button in the distant future.
 #define GPIO_CALIBRATION_PIN 17 //D8
 #define GPIO_LOGGING_PIN 18     //D9
-
+// Select positive/negative for pins. Defaults to common ground
+#define JUMPERS_COMMON_POSITIVE
 
 // Feedback on A4
 #define SINGLE_MOTOR_GPIO_OUTPUT 11
@@ -43,10 +51,7 @@
 #define MULTI_MOTOR_GPIO_OUTPUT_4 14  //A7
 
 // Select positive/negative for pins. Defaults to common ground
-
-#define ADC_COMMON_POSITIVE
 #define FEEDBACK_COMMON_POSITIVE
-#define JUMPERS_COMMON_POSITIVE
 
 #define DISABLECTRLALTWIN
 
