@@ -13,23 +13,22 @@
 #define ENVELOPE_GRACE_PERIOD_USEC  100000;
 
 
-#define ADC_SENSOR_COUNT 5
-#define DIGITAL_SENSOR_COUNT 5
+#define ADC_SENSOR_COUNT 10
+#define DIGITAL_SENSOR_COUNT 0
 
 #define ENCODING_SENSOR_COUNT 5
 #define MODIFIER_SENSOR_COUNT 5
 #define SENSOR_COUNT ENCODING_SENSOR_COUNT + MODIFIER_SENSOR_COUNT 
 
 
-// ADC on pins labeled on Arduino as A0,A1,A2,A3,D7
-#define SENSOR_ADC_CHANNELS {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3, ADC_CHANNEL_9}
+// ADC on pins labeled on Arduino as A0,A1,A2,A3,D7; D2,D3,D4,D5,D6
+#define SENSOR_ADC_CHANNELS {ADC_CHANNEL_0, ADC_CHANNEL_1, ADC_CHANNEL_2, ADC_CHANNEL_3, ADC_CHANNEL_9, ADC_CHANNEL_4, ADC_CHANNEL_5, ADC_CHANNEL_6, ADC_CHANNEL_7, ADC_CHANNEL_8}
 #define ADC_ATTENUATION ADC_ATTEN_DB_2_5
 // Select positive/negative for pins. Defaults to common ground
 #define ADC_COMMON_POSITIVE
 
-// Digital buttons for modifiers on D2,D3,D4,D5,D6
 // Technically, these shouldn't go through filtering. However, held button filters shouldn't interfere with them.
-#define DIGITAL_SENSORS {5,6,7,8,9}
+#define DIGITAL_SENSORS {}
 // Select positive/negative for pins. Defaults to common ground
 #define DIGITAL_COMMON_POSITIVE
 
